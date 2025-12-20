@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 
-const routes = require('./routes');
+const routes = require('../src/routes/index');
 const errorMiddleware = require('./middlewares/error.middleware');
 
 const app = express();
@@ -14,7 +14,7 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 
-app.use('/api', routes);
-app.use(errorMiddleware);
+app.use('/api', routes); 
+// app.use(errorMiddleware);
 
 module.exports = app;

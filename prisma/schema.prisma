@@ -11,6 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Organization {
@@ -34,11 +35,17 @@ model Organization {
   @@map("organizations")
 }
 
+enum UserType {
+  INTERNAL
+  EXTERNAL
+  ADMIN
+}
+
 model User {
   id           BigInt   @id @default(autoincrement())
   orgId        BigInt
   userType     String
-  email        String?  @unique
+  email        String  @unique
   name         String
   phone        String?
   address      String?
