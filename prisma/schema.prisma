@@ -1,0 +1,169 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id        BigInt   @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  phone     String?
+  address   String?
+  gstin     String?
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+
+  users     User[]
+  invoices  InvoiceBill[]
+  expenses  ExpenseBill[]
+  kpis      KpiSnapshot[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organizations")
+}
+
+model User {
+  id           BigInt   @id @default(autoincrement())
+  orgId        BigInt
+  userType     String
+  email        String?  @unique
+  name         String
+  phone        String?
+  address      String?
+
+  passwordHash String?
+  role          String  @default("USER")
+  isActive      Boolean @default(true)
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  invoices      InvoiceBill[]
+  expenses      ExpenseBill[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("users")
+}
+
+model InvoiceBill {
+  id            BigInt   @id @default(autoincrement())
+  orgId         BigInt
+  customerId    BigInt
+
+  invoiceNumber String
+  issueDate     DateTime
+  dueDate       DateTime
+
+  subtotal      Decimal  @db.Decimal(15, 2) @default(0.00)
+  taxAmount     Decimal  @db.Decimal(15, 2) @default(0.00)
+  totalAmount   Decimal  @db.Decimal(15, 2)
+  paidAmount    Decimal  @db.Decimal(15, 2) @default(0.00)
+
+  status        String   @default("DRAFT")
+  pdfUrl        String?
+  sentAt        DateTime?
+  paidAt        DateTime?
+
+  organization  Organization @relation(fields: [orgId], references: [id])
+  customer      User         @relation(fields: [customerId], references: [id])
+  items         InvoiceBillItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("invoice_bills")
+}
+
+model InvoiceBillItem {
+  id          BigInt   @id @default(autoincrement())
+  invoiceId  BigInt
+
+  itemName    String
+  description String?
+  quantity    Decimal  @db.Decimal(10, 2) @default(1)
+  unitPrice   Decimal  @db.Decimal(15, 2)
+  taxRate     Decimal  @db.Decimal(15, 2) @default(0.00)
+  totalPrice  Decimal  @db.Decimal(10, 2)
+
+  invoice     InvoiceBill @relation(fields: [invoiceId], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@map("invoice_bill_items")
+}
+
+model ExpenseBill {
+  id           BigInt   @id @default(autoincrement())
+  orgId        BigInt
+  userId       BigInt?
+
+  merchant     String?
+  expenseDate  DateTime
+  totalAmount  Decimal  @db.Decimal(15, 2)
+  category     String   @default("OTHER")
+  paymentMethod String?
+
+  receiptUrl   String?
+  ocrExtracted Boolean  @default(false)
+  ocrConfidence Decimal?
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+  items        ExpenseBillItem[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("expense_bills")
+}
+
+model ExpenseBillItem {
+  id          BigInt   @id @default(autoincrement())
+  expenseId  BigInt
+
+  itemName   String?
+  quantity   Decimal   @db.Decimal(15, 2) @default(1)
+  unitPrice  Decimal   @db.Decimal(15, 2)
+  totalPrice Decimal   @db.Decimal(15, 2)
+
+  expense    ExpenseBill @relation(fields: [expenseId], references: [id])
+
+  createdAt  DateTime @default(now())
+
+  @@map("expense_bill_items")
+}
+
+model KpiSnapshot {
+  id                      BigInt   @id @default(autoincrement())
+  orgId                   BigInt
+  snapshotDate            DateTime
+
+  totalIncome             Decimal   @db.Decimal(15, 2) @default(0.00)
+  totalExpenses           Decimal   @db.Decimal(15, 2) @default(0.00)
+  netCashflow             Decimal   @db.Decimal(15, 2) @default(0.00)
+
+  outstandingReceivables  Decimal   @db.Decimal(15, 2) @default(0.00)
+  overdueInvoicesCount    Int      @default(0)
+
+  topExpenseCategory      String?
+  expenseGrowthPercent    Decimal?  @db.Decimal(15, 2)
+
+  organization            Organization @relation(fields: [orgId], references: [id])
+
+  createdAt               DateTime @default(now())
+
+  @@unique([orgId, snapshotDate])
+  @@map("kpi_snapshots")
+}
