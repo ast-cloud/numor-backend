@@ -1,7 +1,6 @@
 // src/routes/index.js
 const express = require('express');
 const router = express.Router();
-
 // Module routes
 const authRoutes = require('../modules/auth/auth.routes');
 // const userRoutes = require('../modules/users/user.routes');

@@ -15,6 +15,6 @@ app.use(helmet());
 app.use(morgan('dev'));
 
 app.use('/api', routes); 
-// app.use(errorMiddleware);
+app.use(errorMiddleware);
 
 module.exports = app;
