@@ -16,6 +16,6 @@ exports.updateUserSchema = z.object({
     role: z.string().optional(),
 })
 
-exports.updateUserSchema = z.object({
+exports.updateStatusSchema = z.object({
     isActive: z.boolean()
 })
