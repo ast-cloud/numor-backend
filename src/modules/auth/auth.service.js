@@ -40,6 +40,7 @@ async function registerUser(data) {
     const token = signToken({
         userId: safeUser.id,
         orgId: safeUser.orgId,
+        role: safeUser.role,
         userType: safeUser.userType,
     });
 
@@ -74,6 +75,7 @@ async function loginUser(email, password) {
     const token = signToken({
         userId: safeUser.id,
         orgId: safeUser.orgId,
+        role: safeUser.role,
         userType: safeUser.userType,
     });
 

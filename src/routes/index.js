@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 // Module routes
 const authRoutes = require('../modules/auth/auth.routes');
-// const userRoutes = require('../modules/users/user.routes');
+const userRoutes = require('../modules/users/user.routes');
 // const orgRoutes = require('../modules/organizations/org.routes');
 // const invoiceRoutes = require('../modules/invoices/invoice.routes');
 // const expenseRoutes = require('../modules/expenses/expense.routes');
@@ -17,7 +17,7 @@ router.get('/health', (req, res) => {
 
 // Mount modules
 router.use('/auth', authRoutes);
-// router.use('/users', userRoutes);
+router.use('/users', userRoutes);
 // router.use('/organizations', orgRoutes);
 // router.use('/invoices', invoiceRoutes);
 // router.use('/expenses', expenseRoutes);
