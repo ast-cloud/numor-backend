@@ -15,6 +15,11 @@ app.use(helmet());
 app.use(morgan('dev'));
 
 app.use('/api', routes); 
+
+BigInt.prototype.toJSON = function () {
+    return this.toString();
+};
+
 app.use(errorMiddleware);
 
 module.exports = app;
