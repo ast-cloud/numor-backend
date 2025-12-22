@@ -4,16 +4,29 @@ const upload = require('../../config/ocr');
 const controller = require('./invoice.controller');
 
 router.post(
-  '/ocr/preview',
+  '/ocr/uploadInvoice',
   auth,
   upload.single('file'),
   controller.previewOCR
 );
 
 router.post(
-  '/ocr/confirm',
+  '/ocr/saveInvoice',
   auth,
   controller.confirmOCR
 )
+
+router.get(
+  '/',
+  auth,
+  controller.listInvoices
+)
+
+router.get(
+  '/:id/products',
+  auth,
+  controller.listInvoiceProduct
+)
+
 
 module.exports = router;

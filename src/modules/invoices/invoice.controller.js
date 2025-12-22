@@ -32,3 +32,23 @@ exports.confirmOCR = async function (req, res) {
   }
 };
 
+exports.listInvoices = async function(req, res){
+  try{
+    const user = req.user;
+    const invoices = await invoiceService.listInvoices(user);
+    res.json({success: true, data: invoices});
+  } catch(err){
+    console.error('Error in listInvoices:', err);
+    res.status(500).json({success: false, message: err.message});
+  }
+}
+
+exports.listInvoiceProduct = async function(req, res){    
+  try{
+    const products = await invoiceService.listInvoiceProducts(req.params.id);
+    res.json({success: true, data: products});
+  } catch(err){
+    console.error('Error in listInvoiceProduct:', err);
+    res.status(500).json({success: false, message: err.message});
+  }
+}

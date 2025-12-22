@@ -57,6 +57,28 @@ async function saveInvoiceFromPreview(user, payload) {
     });
 }
 
+async function listInvoices(user) {
+    return prisma.invoiceBill.findMany({
+        where: {
+            customerId: BigInt(user.userId),
+        },
+        include: {
+            items: true,
+        },
+        orderBy: {
+            createdAt: 'desc',
+        },
+    });
+}
+
+async function listInvoiceProducts(invoiceId) {
+    return prisma.invoiceBillItem.findMany({
+        where: { invoiceId: BigInt(invoiceId) }
+    })
+}
+
+
+
 // async function saveConfirmedInvoice(invoiceId, parsed) {
 //     console.log('Saving confirmed invoice data:', parsed);
 
@@ -131,5 +153,7 @@ async function saveInvoiceFromPreview(user, payload) {
 
 module.exports = {
     previewInvoiceOCR,
-    saveInvoiceFromPreview
+    saveInvoiceFromPreview,
+    listInvoices,
+    listInvoiceProducts,
 };
