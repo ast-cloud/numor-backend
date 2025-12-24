@@ -1,0 +1,854 @@
+{
+  "info": {
+    "_postman_id": "54790f13-3e8a-4ff4-bcbe-24cbd4e0bee2",
+    "name": "numor",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "CreateUser",
+          "id": "efff242c-8fdf-4b72-b5da-137cd9e326da",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjMwOTA1MSwiZXhwIjoxNzY2OTEzODUxfQ.GuWXBh7KiMNKKo5zSO6N59oyYwU1188SLazSauJoAUI",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"Jane Smith\",\r\n  \"email\": \"jane.prashanth@numor.com\",\r\n  \"password\": \"Password@123\",\r\n  \"role\": \"USER\",\r\n  \"userType\": \"INTERNAL\",\r\n  \"orgId\": 1\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/users/",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                ""
+              ]
+            },
+            "description": "Generated from cURL: curl --location 'http://localhost:4000/api/users' `\r\n--header 'Content-Type: application/json' `\r\n--header 'Authorization: Bearer <ADMIN_JWT_TOKEN>' `\r\n--data '{\r\n  \"name\": \"Jane Smith\",\r\n  \"email\": \"jane.smith@numor.com\",\r\n  \"password\": \"Password@123\",\r\n  \"role\": \"USER\",\r\n  \"userType\": \"INTERNAL\",\r\n  \"orgId\": 1\r\n}'\r\n"
+          },
+          "response": []
+        },
+        {
+          "name": "ListUsers",
+          "id": "90370b18-a0ad-4e5e-87d9-5c594a754e93",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjUwNTEyNSwiZXhwIjoxNzY3MTA5OTI1fQ.y5ZuHCNSAAYgrIjkQw_6ElrNFHv23wTzRO9q70c8QLI",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}/api/users/",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GetUser",
+          "id": "2f867b37-d347-47ee-88d6-82e3e0a67b64",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjMwOTA1MSwiZXhwIjoxNzY2OTEzODUxfQ.GuWXBh7KiMNKKo5zSO6N59oyYwU1188SLazSauJoAUI",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}/api/users/:id",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "UpdateUser",
+          "id": "1433bfa5-e8e3-4632-9b71-50cb86222d10",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjMwOTA1MSwiZXhwIjoxNzY2OTEzODUxfQ.GuWXBh7KiMNKKo5zSO6N59oyYwU1188SLazSauJoAUI",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"name\": \"name Smith\",\r\n  \"email\": \"name@gmaol.com\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/users/:id",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "UpdateUserStatus",
+          "id": "ae7e5151-54ba-4530-8c74-46d2d32a6a2e",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjMwOTA1MSwiZXhwIjoxNzY2OTEzODUxfQ.GuWXBh7KiMNKKo5zSO6N59oyYwU1188SLazSauJoAUI",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"isActive\": false\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/users/:id/status",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                ":id",
+                "status"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "7beac129-0392-42dc-ae1a-b01b77ed84b3"
+    },
+    {
+      "name": "Invoices",
+      "item": [
+        {
+          "name": "OCR_Upload",
+          "id": "c63f4ae5-d752-43f5-a851-688cddc2c2b2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjM0MTk5MCwiZXhwIjoxNzY2OTQ2NzkwfQ.k3Ygq1j7P6MAHeXKhZor-OS0Ap4TbfsXUZZySdY0hGw"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/D:/Numor/uploads/image.png"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/invoices/ocr/uploadInvoice",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                "ocr",
+                "uploadInvoice"
+              ]
+            },
+            "description": "Generated from cURL: curl -X POST http://localhost:4000/api/invoices/1/ocr \\\r\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN_HERE\" \\\r\n  -H \"Accept: application/json\" \\\r\n  -F \"file=@/absolute/path/to/invoice.pdf\"\r\n"
+          },
+          "response": []
+        },
+        {
+          "name": "OCR_confirm&save",
+          "id": "aa1bfa6c-0253-4d77-be1d-f42ef9e9dc00",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjM0MTk5MCwiZXhwIjoxNzY2OTQ2NzkwfQ.k3Ygq1j7P6MAHeXKhZor-OS0Ap4TbfsXUZZySdY0hGw",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": " {\r\n  \"invoiceNumber\": \"INV-2025-001\",\r\n            \"vendorName\": \"Shivang Babeley\",\r\n            \"invoiceDate\": \"2023-09-22\",\r\n            \"dueDate\": null,\r\n            \"subtotal\": 9700,\r\n            \"taxAmount\": 0,\r\n            \"totalAmount\": 9700,\r\n            \"category\": \"grocery\",\r\n            \"items\": [\r\n                {\r\n                    \"name\": \"Composite restoration\",\r\n                    \"quantity\": 5,\r\n                    \"unitPrice\": 1640,\r\n                    \"total\": 8200\r\n                },\r\n                {\r\n                    \"name\": \"Complete scaing\",\r\n                    \"quantity\": 1,\r\n                    \"unitPrice\": 1500,\r\n                    \"total\": 1500\r\n                }\r\n            ]\r\n        }\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/invoices/ocr/saveInvoice",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                "ocr",
+                "saveInvoice"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ListInvoices",
+          "id": "b3c8b3f5-8466-4af4-8f04-a9f6d70c1ccf",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjM0MTk5MCwiZXhwIjoxNzY2OTQ2NzkwfQ.k3Ygq1j7P6MAHeXKhZor-OS0Ap4TbfsXUZZySdY0hGw",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/invoices/",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ListInvoicesProducts",
+          "id": "4fb792a3-a9f0-4171-a942-f81de19e009a",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjM0MTk5MCwiZXhwIjoxNzY2OTQ2NzkwfQ.k3Ygq1j7P6MAHeXKhZor-OS0Ap4TbfsXUZZySdY0hGw",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": " {\r\n  \"invoiceNumber\": \"INV-2025-001\",\r\n            \"vendorName\": \"Shivang Babeley\",\r\n            \"invoiceDate\": \"2023-09-22\",\r\n            \"dueDate\": null,\r\n            \"subtotal\": 9700,\r\n            \"taxAmount\": 0,\r\n            \"totalAmount\": 9700,\r\n            \"items\": [\r\n                {\r\n                    \"name\": \"Composite restoration\",\r\n                    \"quantity\": 5,\r\n                    \"unitPrice\": 1640,\r\n                    \"total\": 8200\r\n                },\r\n                {\r\n                    \"name\": \"Complete scaing\",\r\n                    \"quantity\": 1,\r\n                    \"unitPrice\": 1500,\r\n                    \"total\": 1500\r\n                }\r\n            ]\r\n        }\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/invoices/:id/products",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                ":id",
+                "products"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "b629ccb5-cab8-4ece-90a2-026809c55d57"
+    },
+    {
+      "name": "Expenses",
+      "item": [
+        {
+          "name": "OCR_Upload",
+          "id": "2de1db9e-e792-4235-b3c6-8f5d2962a215",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjM0MTk5MCwiZXhwIjoxNzY2OTQ2NzkwfQ.k3Ygq1j7P6MAHeXKhZor-OS0Ap4TbfsXUZZySdY0hGw"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/D:/Numor/uploads/DemoInvoice.jpg"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/expenses/ocr/uploadExpense",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "expenses",
+                "ocr",
+                "uploadExpense"
+              ]
+            },
+            "description": "Generated from cURL: curl -X POST http://localhost:4000/api/invoices/1/ocr \\\r\n  -H \"Authorization: Bearer YOUR_JWT_TOKEN_HERE\" \\\r\n  -H \"Accept: application/json\" \\\r\n  -F \"file=@/absolute/path/to/invoice.pdf\"\r\n"
+          },
+          "response": []
+        },
+        {
+          "name": "OCR_confirm&save",
+          "id": "7d4a1d23-afe4-4cd5-8e92-9300ba9d5b5d",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjM0MTk5MCwiZXhwIjoxNzY2OTQ2NzkwfQ.k3Ygq1j7P6MAHeXKhZor-OS0Ap4TbfsXUZZySdY0hGw",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": " {\r\n            \"merchant\": \"Andrews, Kirby and Valdez\",\r\n            \"expenseDate\": \"04/13/2013\",\r\n            \"totalAmount\": 10236.19,\r\n            \"category\": \"Travel\",\r\n            \"paymentMethod\": null,\r\n            \"items\": [\r\n                {\r\n                    \"name\": \"ibs CLEARANCE! Fast Dell Desktop Computer PC DUAL CORE WINDOWS 10 4/8/16GB RAM\",\r\n                    \"quantity\": 3,\r\n                    \"unitPrice\": 209,\r\n                    \"total\": 627\r\n                },\r\n                {\r\n                    \"name\": \"HP T520 Thin Client Computer AMD GX-212JC 1.2GHz 4GB RAM TESTED !!READ BELOW!!\",\r\n                    \"quantity\": 5,\r\n                    \"unitPrice\": 37.75,\r\n                    \"total\": 188.75\r\n                },\r\n                {\r\n                    \"name\": \"gaming pc desktop computer\",\r\n                    \"quantity\": 1,\r\n                    \"unitPrice\": 400,\r\n                    \"total\": 400\r\n                },\r\n                {\r\n                    \"name\": \"12-Core Gaming Computer Desktop PC Tower Affordable GAMING PC 8GB AMD Vega RGB\",\r\n                    \"quantity\": 3,\r\n                    \"unitPrice\": 464.89,\r\n                    \"total\": 1394.67\r\n                },\r\n                {\r\n                    \"name\": \"Custom Build Dell Optiplex 9020 MT i5-4570 3.20GHz Desktop Computer PC\",\r\n                    \"quantity\": 5,\r\n                    \"unitPrice\": 221.99,\r\n                    \"total\": 1109.95\r\n                },\r\n                {\r\n                    \"name\": \"Dell Optiplex 990 MT Computer PC Quad Core i7 3.4GHz 16GB 2TB HD Windows 10 Pro\",\r\n                    \"quantity\": 4,\r\n                    \"unitPrice\": 269.95,\r\n                    \"total\": 1079.8\r\n                },\r\n                {\r\n                    \"name\": \"Dell Core 2 Duo Desktop Computer | Windows XP Pro | 4GB | 500GB\",\r\n                    \"quantity\": 5,\r\n                    \"unitPrice\": 168,\r\n                    \"total\": 840\r\n                }\r\n            ],\r\n            \"confidence\": null\r\n        }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/expenses/ocr/saveExpense",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "expenses",
+                "ocr",
+                "saveExpense"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ListExpense",
+          "id": "b22bceaa-bfe4-4ec4-ac7b-f066c1a8a03a",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjM0MTk5MCwiZXhwIjoxNzY2OTQ2NzkwfQ.k3Ygq1j7P6MAHeXKhZor-OS0Ap4TbfsXUZZySdY0hGw",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/expenses/",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "expenses",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ListExpenseProducts",
+          "id": "80b8f30f-1d0b-47ce-8ee0-32b6b6d14959",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjM0MTk5MCwiZXhwIjoxNzY2OTQ2NzkwfQ.k3Ygq1j7P6MAHeXKhZor-OS0Ap4TbfsXUZZySdY0hGw",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": " {\r\n  \"invoiceNumber\": \"INV-2025-001\",\r\n            \"vendorName\": \"Shivang Babeley\",\r\n            \"invoiceDate\": \"2023-09-22\",\r\n            \"dueDate\": null,\r\n            \"subtotal\": 9700,\r\n            \"taxAmount\": 0,\r\n            \"totalAmount\": 9700,\r\n            \"items\": [\r\n                {\r\n                    \"name\": \"Composite restoration\",\r\n                    \"quantity\": 5,\r\n                    \"unitPrice\": 1640,\r\n                    \"total\": 8200\r\n                },\r\n                {\r\n                    \"name\": \"Complete scaing\",\r\n                    \"quantity\": 1,\r\n                    \"unitPrice\": 1500,\r\n                    \"total\": 1500\r\n                }\r\n            ]\r\n        }\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/invoices/:id/products",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                ":id",
+                "products"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "9aa336b2-20b6-4531-9067-b44930ac7fb4"
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "UserRevenue",
+          "id": "6eba7cd8-87ed-49da-ad15-9b93d70b61c1",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjQ5MzgzOSwiZXhwIjoxNzY3MDk4NjM5fQ.TZgadSL_pYQ0s4RGzNjSGBAJmqlJcIACL9xCdyjORK8",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/dashboard/userRevenue?startDate=2023-09-01&endDate=2023-10-01",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "userRevenue"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2023-09-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2023-10-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "UserExpense",
+          "id": "7f68611c-e0de-4396-8745-49982dd52cf0",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjQ5MzgzOSwiZXhwIjoxNzY3MDk4NjM5fQ.TZgadSL_pYQ0s4RGzNjSGBAJmqlJcIACL9xCdyjORK8",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/dashboard/userExpense?startDate=2013-03-01&endDate=2023-10-01",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "userExpense"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2013-03-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2023-10-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DashboarSummary",
+          "id": "9e1d9105-af1e-4b8f-9e1c-52b7a9d38986",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjQ5MzgzOSwiZXhwIjoxNzY3MDk4NjM5fQ.TZgadSL_pYQ0s4RGzNjSGBAJmqlJcIACL9xCdyjORK8",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/dashboard/dashboardSummary?startDate=2010-09-01&endDate=2023-10-01",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "dashboardSummary"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2010-09-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2023-10-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "RevenueExpenseTrends",
+          "id": "f0f3d512-0718-4062-9c0d-a01720de0291",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxIiwib3JnSWQiOiIxIiwicm9sZSI6IkFETUlOIiwidXNlclR5cGUiOiJJTlRFUk5BTCIsImlhdCI6MTc2NjQ5MzgzOSwiZXhwIjoxNzY3MDk4NjM5fQ.TZgadSL_pYQ0s4RGzNjSGBAJmqlJcIACL9xCdyjORK8",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseURL}}/api/dashboard/revenueExpenseTrend?startDate=2010-09-01&endDate=2023-10-01",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "dashboard",
+                "revenueExpenseTrend"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2010-09-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2023-10-01"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "a784898b-2f3c-4738-81d7-224b79a7d570"
+    },
+    {
+      "name": "RegisterUser",
+      "id": "a56f7043-e02e-4497-a40e-2d84cea4b463",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"user\": {\r\n    \"name\": \"Prashant\",\r\n    \"email\": \"prasffhffant@numor.io\",\r\n    \"password\": \"password123\",\r\n    \"phone\": \"9999999999\"\r\n  },\r\n  \"organization\": {\r\n    \"name\": \"Numor Technologies\",\r\n    \"email\": \"contacft@numor.io\",\r\n    \"phone\": \"8888888888\",\r\n    \"address\": \"Pune, India\",\r\n    \"gstin\": \"27ABCDE1234F1Z5\"\r\n  }\r\n}\r\n",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseURL}}/api/auth/register",
+          "host": [
+            "{{baseURL}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "LoginUser",
+      "id": "e3ecaf8e-51d2-48d6-896b-e62951a093a0",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\": \"john.doe@example.com\",\r\n  \"password\": \"SecurePassword123!\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseURL}}/api/auth/login",
+          "host": [
+            "{{baseURL}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "id": "ec4f07a1-3d5f-4245-8d05-f259a66a93c7",
+      "key": "baseURL",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}
