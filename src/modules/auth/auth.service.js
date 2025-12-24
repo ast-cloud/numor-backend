@@ -1,53 +1,75 @@
 const bcrypt = require('bcrypt');
 const prisma = require('../../config/database');
-const { signToken } = require('../../config/jwt');
+const { signToken } = require('../../config/jwt'); // ADD THIS IMPORT
 
 async function registerUser(data) {
-    const { orgId, email, password, name, userType = "INTERNAL" } = data;
+    const { user, organization } = data;
 
-    // 1. Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-        where: { email },
-    });
-
-    if (!email || !password) {
-        throw new Error("Email and password are required");
+    if (!user.email || !organization.email) {
+        throw new Error("User email and Organization email is required");
     }
 
-    if (existingUser) {
-        throw new Error('User with this email already exists');
-    }
+    return prisma.$transaction(async (tx) => {
+        const existingUser = await tx.user.findUnique({
+            where: { email: user.email }
+        });
 
-    // 2. Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    // 3. Create user
-    const user = await prisma.user.create({
-        data: {
-            orgId: Number(orgId),
-            email,
-            name,
-            role: "USER",
-            userType,
-            passwordHash
+        if (existingUser) {
+            throw new Error('User with this email already exists');
         }
+
+        let org = await tx.organization.findUnique({
+            where: { email: organization.email }
+        });
+
+        if (!org) {
+            org = await tx.organization.create({
+                data: {
+                    name: organization.name,
+                    email: organization.email,
+                    phone: organization.phone,
+                    address: organization.address,
+                    gstin: organization.gstin,
+                },
+            });
+        }
+
+        const passwordHash = user.password
+            ? await bcrypt.hash(user.password, 10)
+            : null;
+
+        const newUser = await tx.user.create({
+            data: {
+                orgId: org.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                address: user.address,
+                passwordHash,
+                userType: 'INTERNAL', // first user = org admin
+                role: 'USER',
+            },
+            include: {
+                organization: true,
+            },
+        });
+
+        /** 5️⃣ Generate JWT */
+        const token = signToken(
+            {
+                userId: newUser.id.toString(),
+                orgId: org.id.toString(),
+                role: newUser.role,
+                userType: newUser.userType,
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        return { token, user: newUser };
     });
-    const safeUser = convertBigIntToString({
-        ...user,
-        passwordHash: undefined
-    });
-
-    // Use safeUser.id and safeUser.orgId for JWT
-    const token = signToken({
-        userId: safeUser.id,
-        orgId: safeUser.orgId,
-        userType: safeUser.userType,
-    });
-
-    return { safeUser, token };
-
-
 }
+
 async function loginUser(email, password) {
     // 1. Find user
     const user = await prisma.user.findUnique({

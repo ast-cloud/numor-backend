@@ -14,9 +14,10 @@ async function register(req, res) {
     res.status(201).json({
       success: true,
       message: "User registered successfully",
-      data: { user },
+      // data: { user },
     });
   } catch (error) {
+    res.clearCookie("access_token");
     res.status(400).json({
       success: false,
       message: error.message,
@@ -45,6 +46,7 @@ async function login(req, res) {
       },
     });
   } catch (error) {
+    res.clearCookie("access_token");
     res.status(401).json({
       success: false,
       message: error.message,
