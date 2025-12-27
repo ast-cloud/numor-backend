@@ -29,7 +29,7 @@ async function login(req, res) {
   try {
     const { email, password } = req.body;
 
-    const { token, user } = await authService.loginUser(email, password);
+    const { token, safeUser } = await authService.loginUser(email, password);
 
     res.cookie("access_token", token, {
       httpOnly: true,
@@ -42,7 +42,7 @@ async function login(req, res) {
       success: true,
       message: "Login successful",
       data: {
-        user, // safe user info
+        safeUser, // safe user info
       },
     });
   } catch (error) {
