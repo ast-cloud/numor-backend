@@ -123,6 +123,7 @@ JSON schema:
   "confidence": number | null
 }
 If any field is missing, return null.
+Fill the category field by selecting one category from this list - "Food & Dining", "Transportation", "Utilities", "Office Supplies", "Travel", "Entertainment", "Other".
 `;
 
   const response = await fetch(
