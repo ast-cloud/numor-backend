@@ -94,7 +94,7 @@ async function parseExpenseFromImage(filePath) {
   });
 
   const prompt = `
-You are a strict JSON generator.
+From the given image of an expense receipt, extract the relevant expense details and return ONLY valid JSON in the specified format.
 
 Rules:
 - Return ONLY valid JSON
@@ -124,6 +124,7 @@ JSON schema:
 }
 If any field is missing, return null.
 Fill the category field by selecting one category from this list - "Food & Dining", "Transportation", "Utilities", "Office Supplies", "Travel", "Entertainment", "Other".
+Fill the expenseDate in this format - DD/MM/YYYY
 `;
 
   const response = await fetch(
