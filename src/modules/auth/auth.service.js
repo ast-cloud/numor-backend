@@ -1,6 +1,10 @@
 const bcrypt = require('bcrypt');
 const prisma = require('../../config/database');
-const { signToken } = require('../../config/jwt'); // ADD THIS IMPORT
+const { signToken } = require('../../config/jwt');
+const { OAuth2Client } = require('google-auth-library');
+// const { use } = require('react');
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 async function registerUser(data) {
     const { user, organization } = data;
@@ -105,6 +109,62 @@ async function loginUser(email, password) {
 
 }
 
+async function googleAuth(idToken) {
+    const ticket = await client.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { sub, email, name, picture } = payload;
+
+    if (!email) {
+        throw new Error("Google account has no email associated");
+    }
+
+    let user = await prisma.user.findUnique({
+        where: { email },
+    });
+
+    if (user) {
+        if (!user.googleId) {
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    googleId: sub,
+                    authProvider: 'GOOGLE',
+                },
+            });
+        }
+    }
+    else{
+        const org = await prisma.organization.create({
+            data: {
+                name: `${name}'s Organization`,
+                email,
+            },
+        });
+        user = await prisma.user.create({
+            data: {
+                orgId: org.id,
+                name,
+                email,
+                googleId: sub,
+                authProvider: 'GOOGLE',
+                userType: 'INTERNAL',
+                role: 'USER',
+            },
+        });
+    }
+
+    const token = signToken({
+        userId: user.id,
+        orgId: user.orgId,
+        role: user.role,
+        userType: user.userType,
+    });
+
+    return { token, user };
+}
 
 function convertBigIntToString(obj) {
     if (typeof obj === 'bigint') {
@@ -123,7 +183,10 @@ function convertBigIntToString(obj) {
     return obj;
 }
 
+
+
 module.exports = {
     registerUser,
     loginUser,
+    googleAuth
 };
