@@ -33,6 +33,7 @@ async function saveInvoiceFromPreview(user, payload) {
             data: {
                 orgId: BigInt(user.orgId),
                 customerId: BigInt(user.userId), // assuming self-billing
+                clientId: payload.clientId ? BigInt(payload.clientId) : null,
                 invoiceNumber: payload.invoiceNumber || `INV-${user.orgId}-${new Date().getFullYear()}-${Date.now()}`,
                 issueDate: payload.invoiceDate
                     ? new Date(payload.invoiceDate)
