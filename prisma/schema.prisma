@@ -57,11 +57,12 @@ model User {
   passwordHash String?
   authProvider AuthProvider @default(LOCAL)
   googleId     String?      @unique
-  
+
   role          String  @default("USER")
   isActive      Boolean @default(true)
 
   organization Organization @relation(fields: [orgId], references: [id])
+  clients       Client[]
   invoices      InvoiceBill[]
   expenses      ExpenseBill[]
 
@@ -71,9 +72,44 @@ model User {
   @@map("users")
 }
 
+model Client {
+  id          BigInt   @id @default(autoincrement())
+  userId       BigInt
+
+  name        String   @db.Citext
+  email       String?
+  phone       String?
+  address     String?
+  gstin       String?
+  country     String?   // ISO country code: IN, US, AE, UK
+  companyType String?   // Private Ltd, LLP, Individual, etc.
+  taxId       String?  // GSTIN / VAT ID / EIN
+  taxSystem   TaxSystem @default(NONE)
+
+  isActive    Boolean  @default(true)
+
+  user        User         @relation(fields: [userId], references: [id])
+  invoices    InvoiceBill[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@unique([userId, name]) // Same client name allowed in different orgs and different user
+  @@map("clients")
+}
+
+enum TaxSystem {
+  GST     // India
+  VAT     // UAE, UK, EU
+  SALES   // US Sales Tax
+  NONE    // No tax / export
+}
+
 model InvoiceBill {
   id            BigInt   @id @default(autoincrement())
   orgId         BigInt
+  clientId      BigInt?
   customerId    BigInt
 
   invoiceNumber String
@@ -93,11 +129,13 @@ model InvoiceBill {
 
   organization  Organization @relation(fields: [orgId], references: [id])
   customer      User         @relation(fields: [customerId], references: [id])
+  client        Client? @relation(fields: [clientId], references: [id])
   items         InvoiceBillItem[]
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-
+  
+  @@index([clientId])
   @@map("invoice_bills")
 }
 

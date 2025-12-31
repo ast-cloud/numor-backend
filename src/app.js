@@ -21,7 +21,7 @@ app.use('/api', routes);
 BigInt.prototype.toJSON = function () {
     return this.toString();
 };
-
+console.log('✅ app.js loaded');
 app.use(errorMiddleware);
 
 module.exports = app;

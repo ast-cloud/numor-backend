@@ -8,6 +8,7 @@ const orgRoutes = require('../modules/organizations/org.routes');
 const invoiceRoutes = require('../modules/invoices/invoice.routes');
 const expenseRoutes = require('../modules/expenses/expense.routes');
 const dashboardRoutes = require('../modules/dashboard/dashboard.routes');
+const clientRoutes = require('../modules/clients/client.routes');
 // const aiRoutes = require('../modules/ai/ai.routes');
 
 // Health check
@@ -22,6 +23,7 @@ router.use('/organizations', orgRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/clients', clientRoutes);
 // router.use('/ai', aiRoutes);
 
 module.exports = router;
