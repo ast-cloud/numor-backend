@@ -118,6 +118,7 @@ model InvoiceBill {
 
   subtotal      Decimal  @db.Decimal(15, 2) @default(0.00)
   taxAmount     Decimal  @db.Decimal(15, 2) @default(0.00)
+  discount        Decimal  @db.Decimal(15, 2)  @default(0.00)
   totalAmount   Decimal  @db.Decimal(15, 2)
   paidAmount    Decimal  @db.Decimal(15, 2) @default(0.00)
 
@@ -126,6 +127,24 @@ model InvoiceBill {
   pdfUrl        String?
   sentAt        DateTime?
   paidAt        DateTime?
+
+  sellerName      String
+  sellerAddress   String
+  sellerTaxId     String?  // GSTIN
+  iecCode         String?  // IEC Code
+  lutFiled        Boolean  @default(false)
+  buyerTaxId      String?
+  currency        String   @default("USD")
+  placeOfSupply   String?
+  reverseCharge   Boolean  @default(false)
+  shipToName      String?
+  shipToAddress   String?
+  countryOfOrigin String?
+  incoterms       String?
+  taxSummary      Json?
+  sacCode         String?  // Header service code
+  bankDetails     Json?    // {"swift": "..."}
+  notes           Text?    // "GST @0% - Export under LUT"
 
   organization  Organization @relation(fields: [orgId], references: [id])
   customer      User         @relation(fields: [customerId], references: [id])

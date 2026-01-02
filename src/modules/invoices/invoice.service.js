@@ -3,7 +3,7 @@ const ocrService = require('../../services/ocr.service');
 const aiService = require('../ai/ai.service');
 
 async function previewInvoiceAI(filePath) {
-  const parsed = await aiService.parseInvoiceFromImage(filePath);
+  const parsed = await aiService.parseInvoiceFromFile(filePath);
 
   return {
     source: "gemini-vision",

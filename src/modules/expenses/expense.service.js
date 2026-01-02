@@ -4,7 +4,7 @@ const aiService = require('../ai/ai.service');
 
 
 exports.previewExpenseAI = async function (filePath) {
-  const parsed = await aiService.parseExpenseFromImage(filePath);
+  const parsed = await aiService.parseExpenseFromFile(filePath);
 
   return {
     source: "gemini-vision",

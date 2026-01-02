@@ -2,6 +2,7 @@ const fetch = require('node-fetch');
 const invoicePrompt = require('./prompts/invoice.prompt');
 const expensePromt = require('./prompts/expense.prompt');
 const fs = require("fs");
+const path = require("path");
 
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
 
@@ -16,11 +17,7 @@ function extractJson(text) {
   return JSON.parse(match[0]);
 }
 
-async function parseInvoiceFromImage(filePath) {
-  const imageBase64 = fs.readFileSync(filePath, {
-    encoding: "base64",
-  });
-
+async function parseInvoiceFromFile(filePath) {
   const prompt = `
 You are an expert invoice parser.
 Analyze the invoice image and return ONLY valid JSON.
@@ -48,51 +45,14 @@ JSON format:
 If any field is missing, return null.
 `;
 
-  const response = await fetch(
-    `${GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt },
-              {
-                inline_data: {
-                  mime_type: "image/jpeg", // or image/png
-                  data: imageBase64,
-                },
-              },
-            ],
-          },
-        ],
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!text) {
-    throw new Error("Gemini returned empty response");
-  }
-
   try {
-    return extractJson(text);
+    return await callGemini(prompt, filePath);
   } catch (err) {
-    console.error("❌ GEMINI RAW RESPONSE:\n", text);
+    console.error("❌ GEMINI INVOICE ERROR:\n", err);
     throw err;
   }
 }
-async function parseExpenseFromImage(filePath) {
-  const imageBase64 = fs.readFileSync(filePath, {
-    encoding: "base64",
-  });
-
+async function parseExpenseFromFile(filePath) {
   const prompt = `
 You are a strict JSON generator.
 
@@ -126,6 +86,20 @@ If any field is missing, return null.
 Fill the category field by selecting one category from this list - "Food & Dining", "Transportation", "Utilities", "Office Supplies", "Travel", "Entertainment", "Other".
 `;
 
+  try {
+    return await callGemini(prompt, filePath);
+  } catch (err) {
+    console.error("❌ GEMINI EXPENSE ERROR");
+    throw err;
+  }
+}
+
+async function callGemini(prompt, filePath) {
+  const mimeType = getMimeType(filePath);
+  const fileBase64 = fs.readFileSync(filePath, {
+    encoding: "base64",
+  });
+
   const response = await fetch(
     `${GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
     {
@@ -139,8 +113,8 @@ Fill the category field by selecting one category from this list - "Food & Dinin
               { text: prompt },
               {
                 inline_data: {
-                  mime_type: "image/jpeg", // or image/png
-                  data: imageBase64,
+                  mime_type: mimeType,
+                  data: fileBase64,
                 },
               },
             ],
@@ -159,81 +133,24 @@ Fill the category field by selecting one category from this list - "Food & Dinin
     throw new Error("Gemini returned empty response");
   }
 
-  try {
-    return extractJson(text);
-  } catch (err) {
-    console.error("❌ GEMINI RAW RESPONSE:\n", text);
-    throw err;
-  }
+  return extractJson(text);
 }
 
 
-async function parseInvoice(ocrText) {
-  const prompt = invoicePrompt(ocrText);
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
 
-  const response = await fetch(
-    `${GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!text) throw new Error('Gemini returned empty response');
-  try {
-    return extractJson(text);
-  } catch (err) {
-    console.error('❌ GEMINI RAW RESPONSE:\n', text);
-    throw err;
+  switch (ext) {
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".pdf":
+      return "application/pdf";
+    default:
+      throw new Error("Unsupported file type");
   }
-  return JSON.parse(text);
 }
 
-async function parseExpense(ocrText) {
-  const prompt = expensePromt(ocrText);
-
-  const response = await fetch(
-    `${GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
-      }),
-    }
-  );
-
-  const data = await response.json();
-
-  const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!text) throw new Error('Gemini returned empty response');
-  try {
-    return extractJson(text);
-  } catch (err) {
-    console.error('❌ GEMINI RAW RESPONSE:\n', text);
-    throw err;
-  }
-  return JSON.parse(text);
-}
-
-module.exports = { parseInvoice, parseExpense, parseInvoiceFromImage, parseExpenseFromImage };
+module.exports = {parseInvoiceFromFile, parseExpenseFromFile };
