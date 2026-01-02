@@ -113,38 +113,73 @@ model InvoiceBill {
   customerId    BigInt
 
   invoiceNumber String
+  invoiceType   String   @default("TAX") // TAX | PROFORMA | COMMERCIAL
   issueDate     DateTime
   dueDate       DateTime
+  paymentTerms  String?  // Net 15, Net 30, Due on receipt
+
+  currency        String   @default("USD") //The currency the client pays in (USD, EUR, GBP).
+  exchangeRate    Decimal? @db.Decimal(10, 4) //The FX rate on the invoice date (important for accounting accuracy).
+  baseCurrency    String?  @default("INR") //Internal reporting currency (e.g., INR equivalent for Indian books).
+  baseAmount      Decimal? @db.Decimal(15, 2)
 
   subtotal      Decimal  @db.Decimal(15, 2) @default(0.00)
-  taxAmount     Decimal  @db.Decimal(15, 2) @default(0.00)
-  discount        Decimal  @db.Decimal(15, 2)  @default(0.00)
+  discount      Decimal  @db.Decimal(15, 2) @default(0.00)
+  taxAmount     Decimal  @db.Decimal(15, 2) @default(0.00) //GST / VAT / Sales Tax (or zero for exports)
+  shippingCost  Decimal  @db.Decimal(15, 2) @default(0.00)
   totalAmount   Decimal  @db.Decimal(15, 2)
-  paidAmount    Decimal  @db.Decimal(15, 2) @default(0.00)
+  paidAmount    Decimal  @db.Decimal(15, 2) @default(0.00) //What client has already paid
+  balanceDue    Decimal  @db.Decimal(15, 2) //What’s still pending
 
-  status        String   @default("DRAFT")
+  status        String   @default("DRAFT")  // DRAFT | SENT | PAID | OVERDUE
   category      String   @default("OTHER")  
   pdfUrl        String?
   sentAt        DateTime?
   paidAt        DateTime?
 
+  // Seller Snapshot
   sellerName      String
   sellerAddress   String
-  sellerTaxId     String?  // GSTIN
-  iecCode         String?  // IEC Code
-  lutFiled        Boolean  @default(false)
-  buyerTaxId      String?
-  currency        String   @default("USD")
-  placeOfSupply   String?
-  reverseCharge   Boolean  @default(false)
-  shipToName      String?
-  shipToAddress   String?
-  countryOfOrigin String?
-  incoterms       String?
-  taxSummary      Json?
-  sacCode         String?  // Header service code
-  bankDetails     Json?    // {"swift": "..."}
-  notes           Text?    // "GST @0% - Export under LUT"
+  sellerEmail     String?
+  sellerPhone     String?
+  sellerCountry   String?
+  sellerTaxId     String?  // GSTIN / VAT
+  iecCode         String?  //Required for international payments (India)
+  lutFiled        Boolean  @default(false) //Confirms GST zero-rated export compliance
+
+  // Buyer Snapshot
+  buyerName       String
+  buyerAddress    String
+  buyerCountry    String
+  buyerTaxId      String? // VAT / EIN / GSTIN
+
+  // Tax & Compliance
+  taxType         String   @default("NONE") // GST | VAT | SALES_TAX | NONE
+  placeOfSupply   String? //Determines which country’s tax rules apply.
+  reverseCharge   Boolean  @default(false) //Means client pays the tax, not the seller (common in EU).
+  reverseReason   String?
+  sacCode         String? //Government service classification code (India GST).
+  taxSummary      Json? //Structured breakdown of all taxes applied (rates, amounts).
+
+  // Shipping / Trade
+  shipToName        String?
+  shipToAddress     String?
+  countryOfOrigin   String?
+  countryOfDestination String?
+  incoterms         String? //International trade rules (FOB, CIF, DDP)
+
+  // Payment
+  bankDetails     Json? // SWIFT, IBAN, IFSC, PayPal, Wise
+  paymentLink     String?
+
+  // Legal
+  jurisdiction    String? // Which country’s laws apply in case of dispute.
+  lateFeePolicy   String? //Penalty or interest for delayed payments.
+  notes           Text? //Free-text section for compliance or special instructions
+
+  pdfUrl        String? //Stored invoice copy
+  sentAt        DateTime? //Audit trail
+  paidAt        DateTime? //System Tracking
 
   organization  Organization @relation(fields: [orgId], references: [id])
   customer      User         @relation(fields: [customerId], references: [id])

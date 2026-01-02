@@ -29,9 +29,13 @@ exports.createUser = async (admin, data)=>{
     })
 }
 
-exports.listUsers = async (admin)=>{
+exports.listUsers = async (admin, page, limit) => {
+    const offset = (page - 1) * limit;
     return prisma.user.findMany({
         where: {orgId: admin.orgId},
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: 'desc' },
         select: {
             id: true,
             email: true,
