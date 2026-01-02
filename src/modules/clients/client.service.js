@@ -26,13 +26,16 @@ exports.createClient = async (user, data) => {
     }
 }
 
-exports.listClient = async (user) => {
+exports.listClient = async (user, page, limit) => {
+    const offset = (page-1) * limit;
     // console.log('User:', user);
     return prisma.client.findMany({
         where: {
             userId: BigInt(user.userId),
             isActive: true,
         },
+        take: limit,
+        skip: offset,
         orderBy: { createdAt: 'desc' },
     });
 }

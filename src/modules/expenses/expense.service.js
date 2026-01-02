@@ -63,7 +63,8 @@ exports.saveExpenseFromPreview = async (user, payload) => {
   });
 };
 
-exports.listExpenses = async (user) => {
+exports.listExpenses = async (user, page, limit) => {
+  const offset = (page - 1) * limit;
   return prisma.expenseBill.findMany({
     where: {
         userId: BigInt(user.userId),
@@ -74,12 +75,17 @@ exports.listExpenses = async (user) => {
     orderBy: {
       createdAt: 'desc',
     },
+    take: limit,
+    skip: offset,
   });
 };
 
-exports.listExpenseItems = async (expenseId) => {
+exports.listExpenseItems = async (expenseId, page, limit) => {
+  const offset = (page - 1) * limit;
   return prisma.expenseBillItem.findMany({
     where: { expenseId: BigInt(expenseId) },
+    take: limit,
+    skip: offset,
   });
 };
 

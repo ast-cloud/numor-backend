@@ -12,7 +12,8 @@ exports.createUser = async (req, res, next) => {
 
 exports.listUsers = async (req, res, next) => {
     try {
-        const users = await service.listUsers(req.user);
+        const {page, limit} = req.query;
+        const users = await service.listUsers(req.user, Number(page), Number(limit));
         res.json({ success: true, data: users });
     } catch (err) {
         next(err);

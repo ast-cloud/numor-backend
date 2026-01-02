@@ -68,7 +68,8 @@ async function saveInvoiceFromPreview(user, payload) {
     });
 }
 
-async function listInvoices(user) {
+async function listInvoices(user, page, limit) {
+    const offset = (page - 1) * limit;
     return prisma.invoiceBill.findMany({
         where: {
             customerId: BigInt(user.userId),
@@ -79,12 +80,17 @@ async function listInvoices(user) {
         orderBy: {
             createdAt: 'desc',
         },
+        take: limit,
+        skip: offset,
     });
 }
 
-async function listInvoiceProducts(invoiceId) {
+async function listInvoiceProducts(invoiceId, page, limit) {
+    const offset = (page - 1) * limit;
     return prisma.invoiceBillItem.findMany({
-        where: { invoiceId: BigInt(invoiceId) }
+        where: { invoiceId: BigInt(invoiceId) },
+        take: limit,
+        skip: offset,
     })
 }
 

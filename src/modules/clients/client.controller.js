@@ -18,7 +18,8 @@ exports.createClient = async function (req, res) {
 exports.listClients = async function (req, res) {
     try{
         const user = req.user; //breakpoint here
-        const clients = await clientService.listClient(user);
+        const {page = 1, limit = 10} = req.query;
+        const clients = await clientService.listClient(user, Number(page), Number(limit));
 
         console.log('Clients fetched:', clients);
         console.log('user:', user);

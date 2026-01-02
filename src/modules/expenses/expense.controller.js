@@ -43,8 +43,9 @@ exports.confirmOCR = async function (req, res) {
 
 exports.listExpenses = async function(req, res){
   try{
+    const {limit, page} = req.query;
     const user = req.user; 
-    const expenses = await expenseService.listExpenses(user);
+    const expenses = await expenseService.listExpenses(user, Number(page), Number(limit));
     res.json({success: true, data: expenses});
   } catch(err){
     console.error('Error in listExpenses:', err);
@@ -54,7 +55,8 @@ exports.listExpenses = async function(req, res){
 
 exports.listExpenseProduct = async function(req, res){    
   try{
-    const products = await expenseService.listExpenseItems(req.params.id);
+    const {page, limit} = req.query;
+    const products = await expenseService.listExpenseItems(req.params.id, Number(page), Number(limit));
     res.json({success: true, data: products});
   } catch(err){
     console.error('Error in listExpenseProduct:', err);
