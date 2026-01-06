@@ -54,3 +54,14 @@ exports.updateUserStatus = async (req, res, next) => {
         next(err);
     }
 };
+
+exports.getCurrentUser = async (req, res, next) => {
+    console.log('Fetching current user for:', req.user);
+    try {
+        const user = await service.getUser(req.user, req.user.userId);
+        res.json({ success: true, data: user });
+    } catch (err) {
+        next(err);
+    }
+
+};
