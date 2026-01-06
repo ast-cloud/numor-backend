@@ -1,10 +1,7 @@
 const bcrypt = require('bcrypt');
 const prisma = require('../../config/database');
 const { signToken } = require('../../config/jwt');
-const { OAuth2Client } = require('google-auth-library');
-// const { use } = require('react');
-
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const fetch = require('node-fetch');
 
 async function registerUser(data) {
     const { user, organization } = data;
@@ -101,13 +98,37 @@ async function loginUser(email, password) {
 
 }
 
-async function googleAuth(idToken) {
-    const ticket = await client.verifyIdToken({
-        idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
+async function googleAuth(code) {
+
+    const params = new URLSearchParams({
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+      grant_type: "authorization_code",
     });
-    const payload = ticket.getPayload();
-    const { sub, email, name, picture } = payload;
+
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString()
+    });
+
+    if (!tokenRes.ok) {
+      const error = await tokenRes.text();
+      console.error("Google token error:", error);
+      throw new Error("Failed to exchange code for token");
+    }
+
+    const { id_token } = await tokenRes.json();
+    const googleUser = JSON.parse(
+      Buffer.from(id_token.split(".")[1], "base64").toString()
+    );
+
+
+    const { sub, email, name, picture } = googleUser;
 
     if (!email) {
         throw new Error("Google account has no email associated");

@@ -68,13 +68,13 @@ async function logout(req, res) {
 
 async function googleLogin(req, res, next) {
   try {
-    const { idToken } = req.body;
-    const { token, user } = await authService.googleAuth(idToken);
+    const { code } = req.body;
+    const { token, user } = await authService.googleAuth(code);
 
     res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     res.json({
