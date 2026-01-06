@@ -9,8 +9,8 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 async function registerUser(data) {
     const { user, organization } = data;
 
-    if (!user.email || !organization.email) {
-        throw new Error("User email and Organization email is required");
+    if (!user.email) {
+        throw new Error("User email is required");
     }
 
     return prisma.$transaction(async (tx) => {
@@ -22,21 +22,12 @@ async function registerUser(data) {
             throw new Error('User with this email already exists');
         }
 
-        let org = await tx.organization.findUnique({
-            where: { email: organization.email }
+        const org = await tx.organization.create({
+            data: {
+                name: `${user.name}'s Organization`,
+                email: user.email
+            }
         });
-
-        if (!org) {
-            org = await tx.organization.create({
-                data: {
-                    name: organization.name,
-                    email: organization.email,
-                    phone: organization.phone,
-                    address: organization.address,
-                    gstin: organization.gstin,
-                },
-            });
-        }
 
         const passwordHash = user.password
             ? await bcrypt.hash(user.password, 10)
@@ -47,10 +38,11 @@ async function registerUser(data) {
                 orgId: org.id,
                 name: user.name,
                 email: user.email,
-                phone: user.phone,
-                address: user.address,
+                // phone: user.phone,
+                // address: user.address,
                 passwordHash,
-                userType: 'INTERNAL', // first user = org admin
+                authProvider: 'LOCAL',
+                userType: 'INTERNAL', 
                 role: 'USER',
             },
             include: {
@@ -136,7 +128,7 @@ async function googleAuth(idToken) {
             });
         }
     }
-    else{
+    else {
         const org = await prisma.organization.create({
             data: {
                 name: `${name}'s Organization`,
