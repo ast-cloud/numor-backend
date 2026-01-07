@@ -2,7 +2,10 @@ module.exports = (schema) => (req, res, next) => {
   const errors = [];
 
   if (schema.body) {
-    const { error } = schema.body.validate(req.body);
+    const { error } = schema.body.validate(req.body, {
+      abortEarly: false,
+      allowUnknown: false,
+    });
     if (error) errors.push(error.message);
   }
 
