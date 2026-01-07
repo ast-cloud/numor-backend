@@ -8,14 +8,14 @@ const registerSchema = Joi.object({
     phone: Joi.string().optional()
   }).required(),
 
-  organization: Joi.object({
-    name: Joi.string().required(),
-    email: Joi.string().email().required(),
-    phone: Joi.string().optional(),
-    address: Joi.string().optional(),
-    gstin: Joi.string().optional()
-  }).required()
-});
+  // organization: Joi.object({
+  //   name: Joi.string().required(),
+  //   email: Joi.string().email().required(),
+  //   phone: Joi.string().optional(),
+  //   address: Joi.string().optional(),
+  //   gstin: Joi.string().optional()
+  // }).required()
+}).required();
 
 
 module.exports = {

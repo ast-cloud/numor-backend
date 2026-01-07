@@ -4,20 +4,22 @@ const validate = require('../../middlewares/validate.middleware');
 const { registerSchema } = require('./auth.validator');
 
 router.post(
-    '/register', 
-    validate(registerSchema), 
+    '/register',
+    validate({
+        body: registerSchema
+    }),
     controller.register);
 
 router.post(
-    '/login', 
+    '/login',
     controller.login);
 
 router.post(
-    '/logout', 
+    '/logout',
     controller.logout);
 
 router.post(
-    '/google', 
+    '/google',
     controller.googleLogin);
 
 module.exports = router;
