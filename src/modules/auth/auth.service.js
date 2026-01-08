@@ -40,7 +40,7 @@ async function registerUser(data) {
                 passwordHash,
                 authProvider: 'LOCAL',
                 userType: 'INTERNAL', 
-                role: 'USER',
+                role: user.role || 'USER',
             },
             include: {
                 organization: true,

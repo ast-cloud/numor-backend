@@ -19,19 +19,19 @@ datasource db {
 }
 
 model Organization {
-  id        BigInt   @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  phone     String?
-  address   String?
-  gstin     String?
-  logoUrl   String?
-  isActive  Boolean  @default(true)
+  id       BigInt  @id @default(autoincrement())
+  name     String
+  email    String  @unique
+  phone    String?
+  address  String?
+  gstin    String?
+  logoUrl  String?
+  isActive Boolean @default(true)
 
-  users     User[]
-  invoices  InvoiceBill[]
-  expenses  ExpenseBill[]
-  kpis      KpiSnapshot[]
+  users    User[]
+  invoices InvoiceBill[]
+  expenses ExpenseBill[]
+  kpis     KpiSnapshot[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -45,232 +45,400 @@ enum UserType {
   ADMIN
 }
 
+enum Role {
+  ADMIN
+  USER
+  CA
+}
+
 model User {
-  id           BigInt   @id @default(autoincrement())
-  orgId        BigInt
-  userType     String
-  email        String  @unique
-  name         String
-  phone        String?
-  address      String?
+  id       BigInt  @id @default(autoincrement())
+  orgId    BigInt
+  userType String
+  email    String  @unique
+  name     String
+  phone    String?
+  address  String?
 
   passwordHash String?
   authProvider AuthProvider @default(LOCAL)
   googleId     String?      @unique
 
-  role          String  @default("USER")
-  isActive      Boolean @default(true)
+  role     Role  @default(USER)
+  isActive Boolean @default(true)
 
-  organization Organization @relation(fields: [orgId], references: [id])
-  clients       Client[]
-  invoices      InvoiceBill[]
-  expenses      ExpenseBill[]
+  organization Organization  @relation(fields: [orgId], references: [id])
+  clients      Client[]
+  invoices     InvoiceBill[]
+  expenses     ExpenseBill[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  // ✅ CA CONNECT RELATIONS (ADD THESE)
+  caProfile  CAProfile?
+  caBookings CABooking[]
+  caReviews  CAReview[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("users")
 }
 
 model Client {
-  id          BigInt   @id @default(autoincrement())
-  userId       BigInt
+  id     BigInt @id @default(autoincrement())
+  userId BigInt
 
-  name        String   @db.Citext
+  name        String    @db.Citext
   email       String?
   phone       String?
   address     String?
   gstin       String?
-  country     String?   // ISO country code: IN, US, AE, UK
-  companyType String?   // Private Ltd, LLP, Individual, etc.
-  taxId       String?  // GSTIN / VAT ID / EIN
+  country     String? // ISO country code: IN, US, AE, UK
+  companyType String? // Private Ltd, LLP, Individual, etc.
+  taxId       String? // GSTIN / VAT ID / EIN
   taxSystem   TaxSystem @default(NONE)
 
-  isActive    Boolean  @default(true)
+  isActive Boolean @default(true)
 
-  user        User         @relation(fields: [userId], references: [id])
-  invoices    InvoiceBill[]
+  user     User          @relation(fields: [userId], references: [id])
+  invoices InvoiceBill[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([userId])
   @@unique([userId, name]) // Same client name allowed in different orgs and different user
+  @@index([userId])
   @@map("clients")
 }
 
 enum TaxSystem {
-  GST     // India
-  VAT     // UAE, UK, EU
-  SALES   // US Sales Tax
-  NONE    // No tax / export
+  GST // India
+  VAT // UAE, UK, EU
+  SALES // US Sales Tax
+  NONE // No tax / export
 }
 
 model InvoiceBill {
-  id            BigInt   @id @default(autoincrement())
-  orgId         BigInt
-  clientId      BigInt?
-  customerId    BigInt
+  id         BigInt  @id @default(autoincrement())
+  orgId      BigInt
+  clientId   BigInt?
+  customerId BigInt
 
   invoiceNumber String
   invoiceType   String   @default("TAX") // TAX | PROFORMA | COMMERCIAL
   issueDate     DateTime
   dueDate       DateTime
-  paymentTerms  String?  // Net 15, Net 30, Due on receipt
+  paymentTerms  String? // Net 15, Net 30, Due on receipt
 
-  currency        String   @default("USD") //The currency the client pays in (USD, EUR, GBP).
-  exchangeRate    Decimal? @db.Decimal(10, 4) //The FX rate on the invoice date (important for accounting accuracy).
-  baseCurrency    String?  @default("INR") //Internal reporting currency (e.g., INR equivalent for Indian books).
-  baseAmount      Decimal? @db.Decimal(15, 2)
+  currency     String   @default("USD") //The currency the client pays in (USD, EUR, GBP).
+  exchangeRate Decimal? @db.Decimal(10, 4) //The FX rate on the invoice date (important for accounting accuracy).
+  baseCurrency String?  @default("INR") //Internal reporting currency (e.g., INR equivalent for Indian books).
+  baseAmount   Decimal? @db.Decimal(15, 2)
 
-  subtotal      Decimal  @db.Decimal(15, 2) @default(0.00)
-  discount      Decimal  @db.Decimal(15, 2) @default(0.00)
-  taxAmount     Decimal  @db.Decimal(15, 2) @default(0.00) //GST / VAT / Sales Tax (or zero for exports)
-  shippingCost  Decimal  @db.Decimal(15, 2) @default(0.00)
-  totalAmount   Decimal  @db.Decimal(15, 2)
-  paidAmount    Decimal  @db.Decimal(15, 2) @default(0.00) //What client has already paid
-  balanceDue    Decimal  @db.Decimal(15, 2) @default(0.00) //What’s still pending
+  subtotal     Decimal @default(0.00) @db.Decimal(15, 2)
+  discount     Decimal @default(0.00) @db.Decimal(15, 2)
+  taxAmount    Decimal @default(0.00) @db.Decimal(15, 2) //GST / VAT / Sales Tax (or zero for exports)
+  shippingCost Decimal @default(0.00) @db.Decimal(15, 2)
+  totalAmount  Decimal @db.Decimal(15, 2)
+  paidAmount   Decimal @default(0.00) @db.Decimal(15, 2) //What client has already paid
+  balanceDue   Decimal @default(0.00) @db.Decimal(15, 2) //What’s still pending
 
-  status        String   @default("DRAFT")  // DRAFT | SENT | PAID | OVERDUE
-  category      String   @default("OTHER")  
-  pdfKey        String?
-  sentAt        DateTime?
-  paidAt        DateTime?
+  status   String    @default("DRAFT") // DRAFT | SENT | PAID | OVERDUE
+  category String    @default("OTHER")
+  pdfKey   String?
+  sentAt   DateTime?
+  paidAt   DateTime?
 
   // Seller Snapshot
-  sellerName      String?
-  sellerAddress   String?
-  sellerEmail     String?
-  sellerPhone     String?
-  sellerCountry   String?
-  sellerTaxId     String?  // GSTIN / VAT
-  iecCode         String?  //Required for international payments (India)
-  lutFiled        Boolean  @default(false) //Confirms GST zero-rated export compliance
+  sellerName    String?
+  sellerAddress String?
+  sellerEmail   String?
+  sellerPhone   String?
+  sellerCountry String?
+  sellerTaxId   String? // GSTIN / VAT
+  iecCode       String? //Required for international payments (India)
+  lutFiled      Boolean @default(false) //Confirms GST zero-rated export compliance
 
   // Buyer Snapshot
-  buyerName       String?
-  buyerAddress    String?
-  buyerCountry    String?
-  buyerTaxId      String? // VAT / EIN / GSTIN
+  buyerName    String?
+  buyerAddress String?
+  buyerCountry String?
+  buyerTaxId   String? // VAT / EIN / GSTIN
 
   // Tax & Compliance
-  taxType         String   @default("NONE") // GST | VAT | SALES_TAX | NONE
-  placeOfSupply   String? //Determines which country’s tax rules apply.
-  reverseCharge   Boolean  @default(false) //Means client pays the tax, not the seller (common in EU).
-  reverseReason   String?
-  sacCode         String? //Government service classification code (India GST).
-  taxSummary      Json? //Structured breakdown of all taxes applied (rates, amounts).
+  taxType       String  @default("NONE") // GST | VAT | SALES_TAX | NONE
+  placeOfSupply String? //Determines which country’s tax rules apply.
+  reverseCharge Boolean @default(false) //Means client pays the tax, not the seller (common in EU).
+  reverseReason String?
+  sacCode       String? //Government service classification code (India GST).
+  taxSummary    Json? //Structured breakdown of all taxes applied (rates, amounts).
 
   // Shipping / Trade
-  shipToName        String?
-  shipToAddress     String?
-  countryOfOrigin   String?
+  shipToName           String?
+  shipToAddress        String?
+  countryOfOrigin      String?
   countryOfDestination String?
-  incoterms         String? //International trade rules (FOB, CIF, DDP)
+  incoterms            String? //International trade rules (FOB, CIF, DDP)
 
   // Payment
-  bankDetails     Json? // SWIFT, IBAN, IFSC, PayPal, Wise
-  paymentLink     String?
+  bankDetails Json? // SWIFT, IBAN, IFSC, PayPal, Wise
+  paymentLink String?
 
   // Legal
-  jurisdiction    String? // Which country’s laws apply in case of dispute.
-  lateFeePolicy   String? //Penalty or interest for delayed payments.
-  notes           String? //Free-text section for compliance or special instructions
+  jurisdiction  String? // Which country’s laws apply in case of dispute.
+  lateFeePolicy String? //Penalty or interest for delayed payments.
+  notes         String? //Free-text section for compliance or special instructions
 
   // create invoice pdf
-  pdfStatus   String   @default("NOT_STARTED") // NOT_STARTED | QUEUED | PROCESSING | READY | FAILED
+  pdfStatus   String    @default("NOT_STARTED") // NOT_STARTED | QUEUED | PROCESSING | READY | FAILED
   confirmedAt DateTime?
 
-  organization  Organization @relation(fields: [orgId], references: [id])
-  customer      User         @relation(fields: [customerId], references: [id])
-  client        Client? @relation(fields: [clientId], references: [id])
-  items         InvoiceBillItem[]
+  organization Organization      @relation(fields: [orgId], references: [id])
+  customer     User              @relation(fields: [customerId], references: [id])
+  client       Client?           @relation(fields: [clientId], references: [id])
+  items        InvoiceBillItem[]
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([clientId])
   @@map("invoice_bills")
 }
 
 model InvoiceBillItem {
-  id          BigInt   @id @default(autoincrement())
-  invoiceId  BigInt
+  id        BigInt @id @default(autoincrement())
+  invoiceId BigInt
 
   itemName    String
   description String?
-  quantity    Decimal  @db.Decimal(10, 2) @default(1)
-  unitPrice   Decimal  @db.Decimal(15, 2)
-  taxRate     Decimal  @db.Decimal(15, 2) @default(0.00)
-  totalPrice  Decimal  @db.Decimal(10, 2)
+  quantity    Decimal @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(15, 2)
+  taxRate     Decimal @default(0.00) @db.Decimal(15, 2)
+  totalPrice  Decimal @db.Decimal(10, 2)
 
-  invoice     InvoiceBill @relation(fields: [invoiceId], references: [id])
+  invoice InvoiceBill @relation(fields: [invoiceId], references: [id])
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@map("invoice_bill_items")
 }
 
 model ExpenseBill {
-  id           BigInt   @id @default(autoincrement())
-  orgId        BigInt
-  userId       BigInt?
+  id     BigInt  @id @default(autoincrement())
+  orgId  BigInt
+  userId BigInt?
 
-  merchant     String?
-  expenseDate  DateTime
-  totalAmount  Decimal  @db.Decimal(15, 2)
-  category     String   @default("OTHER")
+  merchant      String?
+  expenseDate   DateTime
+  totalAmount   Decimal  @db.Decimal(15, 2)
+  category      String   @default("OTHER")
   paymentMethod String?
 
-  receiptUrl   String?
-  ocrExtracted Boolean  @default(false)
+  receiptUrl    String?
+  ocrExtracted  Boolean  @default(false)
   ocrConfidence Decimal?
 
-  organization Organization @relation(fields: [orgId], references: [id])
-  user         User?        @relation(fields: [userId], references: [id])
+  organization Organization      @relation(fields: [orgId], references: [id])
+  user         User?             @relation(fields: [userId], references: [id])
   items        ExpenseBillItem[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("expense_bills")
 }
 
 model ExpenseBillItem {
-  id          BigInt   @id @default(autoincrement())
-  expenseId  BigInt
+  id        BigInt @id @default(autoincrement())
+  expenseId BigInt
 
   itemName   String?
-  quantity   Decimal   @db.Decimal(15, 2) @default(1)
-  unitPrice  Decimal   @db.Decimal(15, 2)
-  totalPrice Decimal   @db.Decimal(15, 2)
+  quantity   Decimal @default(1) @db.Decimal(15, 2)
+  unitPrice  Decimal @db.Decimal(15, 2)
+  totalPrice Decimal @db.Decimal(15, 2)
 
-  expense    ExpenseBill @relation(fields: [expenseId], references: [id])
+  expense ExpenseBill @relation(fields: [expenseId], references: [id])
 
-  createdAt  DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@map("expense_bill_items")
 }
 
 model KpiSnapshot {
-  id                      BigInt   @id @default(autoincrement())
-  orgId                   BigInt
-  snapshotDate            DateTime
+  id           BigInt   @id @default(autoincrement())
+  orgId        BigInt
+  snapshotDate DateTime
 
-  totalIncome             Decimal   @db.Decimal(15, 2) @default(0.00)
-  totalExpenses           Decimal   @db.Decimal(15, 2) @default(0.00)
-  netCashflow             Decimal   @db.Decimal(15, 2) @default(0.00)
+  totalIncome   Decimal @default(0.00) @db.Decimal(15, 2)
+  totalExpenses Decimal @default(0.00) @db.Decimal(15, 2)
+  netCashflow   Decimal @default(0.00) @db.Decimal(15, 2)
 
-  outstandingReceivables  Decimal   @db.Decimal(15, 2) @default(0.00)
-  overdueInvoicesCount    Int      @default(0)
+  outstandingReceivables Decimal @default(0.00) @db.Decimal(15, 2)
+  overdueInvoicesCount   Int     @default(0)
 
-  topExpenseCategory      String?
-  expenseGrowthPercent    Decimal?  @db.Decimal(15, 2)
+  topExpenseCategory   String?
+  expenseGrowthPercent Decimal? @db.Decimal(15, 2)
 
-  organization            Organization @relation(fields: [orgId], references: [id])
+  organization Organization @relation(fields: [orgId], references: [id])
 
-  createdAt               DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([orgId, snapshotDate])
   @@map("kpi_snapshots")
+}
+
+//CA Schama
+enum CAStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum ConsultationMode {
+  VIDEO
+  AUDIO
+}
+
+enum BookingStatus {
+  INITIATED
+  PAYMENT_PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  CREATED
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+model CAProfile {
+  id     BigInt @id @default(autoincrement())
+  userId BigInt @unique
+
+  registrationNo  String  @unique
+  experienceYears Int
+  hourlyFee       Decimal @db.Decimal(10, 2)
+
+  bio             String?
+  languages       String[] // ["English", "Hindi"]
+  specializations String[] // ["GST", "Income Tax", "Audit"]
+  type       String // ICAI_CERT | PAN | AADHAR
+  documentUrl    String
+
+  calendlyUrl String?
+  calComUrl   String?
+
+  zoomEmail      String?
+  whatsappNumber String?
+
+  status      CAStatus @default(PENDING) //PENDING | APPROVED | REJECTED | SUSPENDED ||when CA onboard on our platform
+  ratingAvg   Decimal? @db.Decimal(3, 2)
+  ratingCount Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id])
+
+  bookings CABooking[]
+  reviews  CAReview[]
+
+  analytics CAAnalytics[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ca_profiles")
+}
+
+model CABooking {
+  id BigInt @id @default(autoincrement())
+
+  userId      BigInt // customer
+  caProfileId BigInt
+
+  consultationMode ConsultationMode
+  scheduledAt      DateTime
+  durationMinutes  Int              @default(60)
+
+  meetingLink     String?
+  meetingProvider String? // ZOOM | WHATSAPP
+
+  amount   Decimal @db.Decimal(15, 2)
+  currency String  @default("INR")
+
+  status BookingStatus @default(INITIATED)
+
+  payment CAPayment?
+
+  user      User      @relation(fields: [userId], references: [id])
+  caProfile CAProfile @relation(fields: [caProfileId], references: [id])
+
+  review CAReview?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([caProfileId])
+  @@map("ca_bookings")
+}
+
+model CAPayment {
+  id        BigInt @id @default(autoincrement())
+  bookingId BigInt @unique
+
+  gateway          String // RAZORPAY | STRIPE
+  gatewayOrderId   String?
+  gatewayPaymentId String?
+
+  amount   Decimal @db.Decimal(15, 2)
+  currency String  @default("INR")
+
+  status PaymentStatus @default(CREATED)
+
+  booking CABooking @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ca_payments")
+}
+
+model CAReview {
+  id BigInt @id @default(autoincrement())
+
+  bookingId   BigInt @unique
+  caProfileId BigInt
+  userId      BigInt
+
+  rating  Int // 1 to 5
+  comment String?
+
+  isVisible Boolean @default(true)
+
+  caProfile CAProfile @relation(fields: [caProfileId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+  booking   CABooking @relation(fields: [bookingId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([caProfileId])
+  @@map("ca_reviews")
+}
+
+model CAAnalytics {
+  id           BigInt   @id @default(autoincrement())
+  caProfileId  BigInt
+  snapshotDate DateTime
+
+  profileViews  Int     @default(0)
+  bookingsCount Int     @default(0)
+  earnings      Decimal @db.Decimal(15, 2)
+
+  caProfile CAProfile @relation(fields: [caProfileId], references: [id])
+
+  @@unique([caProfileId, snapshotDate])
+  @@map("ca_analytics_snapshots")
 }
