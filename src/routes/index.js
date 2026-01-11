@@ -13,7 +13,7 @@ const clientRoutes = require('../modules/clients/client.routes');
 
 const caProfile = require('../modules/ca-connect/ca-profile/caProfile.routes');
 const caBooking = require('../modules/ca-connect/ca-booking/caBooking.routes');
-// const caReview = require('../modules/ca-connect/review/caReview.routes');
+const caReview = require('../modules/ca-connect/ca-review/caReview.routes');
 // const caAdmin = require('../modules/ca-connect/admin/caAdmin.routes');
 
 // Health check
@@ -34,7 +34,7 @@ router.use('/clients', clientRoutes);
 // CA Connect routes
 router.use('/ca-profile', caProfile);
 router.use('/ca-bookings', caBooking);
-// router.use('/ca/reviews', caReview);
+router.use('/ca-reviews', caReview);
 // router.use('/ca/admin', caAdmin);
 
 module.exports = router;
