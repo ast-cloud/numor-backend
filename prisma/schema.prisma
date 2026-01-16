@@ -343,6 +343,8 @@ model CAProfile {
 
   bookings CABooking[]
   reviews  CAReview[]
+  slots CASlot[]  // 👈 Add this
+
 
   analytics CAAnalytics[]
 
@@ -358,6 +360,8 @@ model CABooking {
 
   userId      BigInt // customer
   caProfileId BigInt
+  slotId      BigInt @unique   // 👈 add this
+  slot CASlot? @relation("CASlotToBooking")  // 👈 Add this
 
   consultationMode ConsultationMode
   scheduledAt      DateTime
@@ -443,3 +447,33 @@ model CAAnalytics {
   @@unique([caProfileId, snapshotDate])
   @@map("ca_analytics_snapshots")
 }
+
+enum SlotStatus {
+  AVAILABLE
+  HOLD
+  BOOKED
+}
+
+model CASlot {
+  id           BigInt @id @default(autoincrement())
+
+  caProfileId  BigInt
+  date         DateTime   // YYYY-MM-DD (normalized)
+  startTime    DateTime
+  endTime      DateTime
+
+  status       SlotStatus @default(AVAILABLE)
+
+  bookingId    BigInt?    @unique
+  booking       CABooking? @relation("CASlotToBooking", fields: [bookingId], references: [id])
+
+  caProfile    CAProfile  @relation(fields: [caProfileId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([caProfileId, date])
+  @@index([status])
+  @@map("ca_slots")
+}
+

@@ -10,6 +10,13 @@ router.post(
   controller.createBooking
 );
 
+router.post(
+  '/:bookingId/confirm',
+  authenticate,
+  role('USER'),
+  controller.confirmBooking
+);
+
 router.get(
   '/me',
   authenticate,

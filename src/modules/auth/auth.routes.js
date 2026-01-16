@@ -21,5 +21,6 @@ router.post(
 router.post(
     '/google',
     controller.googleLogin);
+    
 
 module.exports = router;

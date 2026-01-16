@@ -1,27 +1,144 @@
 const { generateBookingCode } = require('../../../utils/bookingCode');
 const prisma = require('../../../config/database');
+const dayjs = require('dayjs');
+const { sendBookingEmails } = require('../../../services/email.service');
+const zoomService = require('../../../services/zoom.service');
+
+
 
 exports.createBooking = async (user, payload) => {
-  return prisma.cABooking.create({
-    data: {
-      bookingCode: generateBookingCode(),
+  console.log('UserPayload is', payload);
+  return prisma.$transaction(async (tx) => {
+    // 1️⃣ Ensure slot is available
+    const slot = await tx.cASlot.findFirst({
+      where: {
+        id: BigInt(payload.slotId),
+        caProfileId: BigInt(payload.caProfileId),
+        status: 'AVAILABLE'
+      }
+    });
 
-      userId:  user.userId,
-      caProfileId: payload.caProfileId,
+    if (!slot) {
+      throw new Error('Slot not available');
+    }
 
-      consultationMode: payload.consultationMode,
-      scheduledAt: payload.scheduledAt,
-      durationMinutes: payload.durationMinutes ?? 60,
+    const booking = await tx.cABooking.create({
+      data: {
+        bookingCode: generateBookingCode(),
 
-      amount: payload.amount,
-      currency: payload.currency || 'INR',
+        userId: user.userId,
+        caProfileId: payload.caProfileId,
+        slotId: payload.slotId,
 
-      status: 'INITIATED'
+        consultationMode: payload.consultationMode,
+        scheduledAt: payload.scheduledAt,
+        durationMinutes: Math.round(
+          (slot.endTime - slot.startTime) / 60000
+        ),
+        amount: payload.amount,
+        currency: payload.currency || 'INR',
+
+        status: 'INITIATED'
+      }
+    });
+    await tx.cASlot.update({
+      where: { id: BigInt(payload.slotId) },
+      data: {
+        status: 'HOLD',
+        bookingId: booking.id
+      }
+    });
+
+    return booking;
+  });
+}
+
+exports.confirmBooking = async (bookingId) => {
+  // 1️⃣ Fetch booking first
+  const existingBooking = await prisma.cABooking.findUnique({
+    where: { id: bookingId },
+    include: {
+      user: true,
+      caProfile: { include: { user: true } },
+      slot: true
     }
   });
+
+  if (!existingBooking) {
+    throw new Error('Booking not found');
+  }
+  if (!existingBooking.slot) {
+    throw new Error('Slot not linked to booking');
+  }
+  console.log('Existing booking:', existingBooking);
+  // 2️⃣ Create Zoom meeting (OUTSIDE transaction)
+  const meeting = await zoomService.createZoomMeeting({
+    topic: `Consultation with ${existingBooking.user.name}`,
+    startTime: existingBooking.slot.startTime,
+    duration: existingBooking.durationMinutes
+  });
+
+  // 3️⃣ DB transaction ONLY for DB changes
+  const confirmedBooking = await prisma.$transaction(async (tx) => {
+    const booking = await tx.cABooking.update({
+      where: { id: bookingId },
+      data: {
+        status: 'CONFIRMED',
+        meetingLink: meeting.join_url,
+        meetingProvider: 'ZOOM'
+      },
+      include: {
+        user: true,
+        caProfile: { include: { user: true } },
+        slot: true
+      }
+    });
+
+    await tx.cASlot.update({
+      where: { id: booking.slotId }, // ✅ safer
+      data: { status: 'BOOKED', bookingId }
+    });
+
+    return booking;
+  });
+
+  // 4️⃣ Fire-and-forget emails AFTER transaction
+  sendBookingEmails(confirmedBooking).catch(err =>
+    logger.error('Email sending failed', err)
+  );
+
+  return confirmedBooking;
 };
 
+// exports.confirmBooking = async (bookingId) => {
+//   const booking = await prisma.$transaction(async (tx) => {
+//     const booking = await tx.cABooking.update({
+//       where: { id: bookingId },
+//       data: { status: 'CONFIRMED' },
+//       include: {
+//         user: true,
+//         caProfile: {
+//           include: { user: true }
+//         }
+//       }
+//     });
+//     if (!booking) throw new Error('Booking not found');
 
+//     const meeting = await zoomService.createZoomMeeting({
+//     topic: `Consultation with ${booking.user.name}`,
+//     startTime: booking.scheduledAt,
+//     duration: booking.durationMinutes
+//   });
+
+//     await tx.cASlot.update({
+//       where: { bookingId },
+//       data: { status: 'BOOKED' }
+//     });
+//     // ✅ Fire-and-forget AFTER transaction
+//     sendBookingEmails(booking);
+//     return booking;
+//   });
+// };
 /**
  * Get booking by bookingCode
  * Accessible by:
