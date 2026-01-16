@@ -23,7 +23,20 @@ exports.createBooking = async (req, res, next) => {
     next(err);
   }
 };
+exports.confirmBooking = async (req, res, next) => {
+  try {
+    const { bookingId } = req.params;
+    const booking = await caBookingService.confirmBooking(bookingId);
 
+    res.json({
+      success: true,
+      message: 'Booking confirmed successfully',
+      data: booking
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 //here normal user is need to get its latest booking by booking code
 exports.getBookingByCode = async (req, res, next) => {
   try {
