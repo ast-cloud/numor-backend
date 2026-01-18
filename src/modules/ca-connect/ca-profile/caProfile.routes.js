@@ -11,25 +11,25 @@ router.get(
 router.get(
     '/me', 
     authenticate,
-    role('CA'), 
+    role('CA_USER'), 
     controller.getCAProfile);
 
 router.post(
     '/', 
     authenticate,
-    role('CA'), 
+    role('CA_USER'), 
     controller.createCAProfile);
 
 router.put(
     '/', 
     authenticate,
-    role('CA'), 
+    role('CA_USER'), 
     controller.updateCAProfile);
 
 router.delete(
     '/', 
     authenticate, 
-    role('CA'),
+    role('CA_USER'),
     controller.deleteCAProfile);
 
 module.exports = router;

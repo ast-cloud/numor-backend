@@ -7,7 +7,7 @@ const role = require('../../../middlewares/role.middleware');
 router.post(
     '/slots',
     authenticate,
-    role('CA'),
+    role('CA_USER'),
     controller.createSlots
 );
 

@@ -6,28 +6,28 @@ const controller = require('./caBooking.controller');
 router.post(
   '/',
   authenticate,
-  role('USER'),
+  role('SME_USER'),
   controller.createBooking
 );
 
 router.post(
   '/:bookingId/confirm',
   authenticate,
-  role('USER'),
+  role('SME_USER'),
   controller.confirmBooking
 );
 
 router.get(
   '/me',
   authenticate,
-  role('USER'),
+  role('SME_USER'),
   controller.listMyBookings
 );
 
 router.get(
   '/ca',
   authenticate,
-  role('CA'),
+  role('CA_USER'),
   controller.listCABookings
 );
 
@@ -41,7 +41,7 @@ router.get(
 router.put(
   '/:bookingCode/cancel',
   authenticate,
-  role('USER'),
+  role('SME_USER'),
   controller.cancelBooking
 );
 
