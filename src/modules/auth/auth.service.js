@@ -40,7 +40,7 @@ async function registerUser(data) {
                 passwordHash,
                 authProvider: 'LOCAL',
                 userType: 'INTERNAL', 
-                role: user.role || 'USER',
+                role: user.role || 'SME_USER',
             },
             include: {
                 organization: true,
@@ -164,7 +164,7 @@ async function googleAuth(code) {
                 googleId: sub,
                 authProvider: 'GOOGLE',
                 userType: 'INTERNAL',
-                role: 'USER',
+                role: 'SME_USER',
             },
         });
     }
