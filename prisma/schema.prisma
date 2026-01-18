@@ -64,7 +64,7 @@ model User {
   authProvider AuthProvider @default(LOCAL)
   googleId     String?      @unique
 
-  role     Role  @default(CA_USER)
+  role     Role  @default(SME_USER)
   isActive Boolean @default(true)
 
   organization Organization  @relation(fields: [orgId], references: [id])
