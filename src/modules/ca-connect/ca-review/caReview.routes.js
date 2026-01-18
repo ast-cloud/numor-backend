@@ -12,7 +12,7 @@ const role = require('../../../middlewares/role.middleware');
 router.post(
     '/',
     authenticate,
-    role('CA'),
+    role('CA_USER'),
     caReviewController.createReview
 );
 

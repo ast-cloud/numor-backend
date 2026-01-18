@@ -47,8 +47,8 @@ enum UserType {
 
 enum Role {
   ADMIN
-  USER
-  CA
+  SME_USER
+  CA_USER
 }
 
 model User {
@@ -64,7 +64,7 @@ model User {
   authProvider AuthProvider @default(LOCAL)
   googleId     String?      @unique
 
-  role     Role  @default(USER)
+  role     Role  @default(CA_USER)
   isActive Boolean @default(true)
 
   organization Organization  @relation(fields: [orgId], references: [id])
