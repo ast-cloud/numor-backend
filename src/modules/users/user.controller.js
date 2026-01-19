@@ -31,12 +31,9 @@ exports.getUser = async (req, res, next) => {
 
 exports.updateUser = async (req, res, next) => {
     try {
-        const user = await service.updateUser(
-            req.user,
-            req.params.id,
-            req.body
-        );
-        res.json({ success: true, data: user });
+        const user = req.user;
+        const userresponse = await service.updateUser(user, req.body);
+        res.json({ success: true, data: userresponse });
     } catch (err) {
         next(err);
     }

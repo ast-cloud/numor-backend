@@ -16,7 +16,7 @@ router.get('/me', controller.getCurrentUser);
 router.post('/', validate(validator.createUserSchema), controller.createUser);
 router.get('/', controller.listUsers);
 router.get('/:id', controller.getUser);
-router.put('/:id', validate(validator.updateUserSchema), controller.updateUser);
+router.put('/update', validate(validator.updateUserSchema), controller.updateUser);
 router.patch(
     '/:id/status',
     validate(validator.updateStatusSchema),

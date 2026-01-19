@@ -67,13 +67,19 @@ exports.getUser = async (admin, userId)=>{
 }
 
 
-exports.updateUser = async (admin, userId, data) => {
-    return prisma.user.updateMany({
+exports.updateUser = async (user, data) => {
+    const updateUser = {...data};
+
+    if(data.password){
+        updateUser.passwordHash = await bcrypt.hash(data.password, 10);
+        delete updateUser.password;
+    }
+
+    return prisma.user.update({
         where: {
-            id: BigInt(userId),
-            orgId: admin.orgId,
+            id: BigInt(user.userId),
         },
-        data,
+        data:updateUser,
     });
 };
 
