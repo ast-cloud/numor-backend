@@ -1,24 +1,11 @@
-const Joi = require("joi");
+const { z } = require('zod');
 
-const registerSchema = Joi.object({
-  user: Joi.object({
-    name: Joi.string().required(),
-    email: Joi.string().email().required(),
-    password: Joi.string().min(6).required(),
-    phone: Joi.string().optional(),
-    role: Joi.string().valid('SME_USER', 'ADMIN', 'CA_USER').optional()
-  }).required(),
-
-  // organization: Joi.object({
-  //   name: Joi.string().required(),
-  //   email: Joi.string().email().required(),
-  //   phone: Joi.string().optional(),
-  //   address: Joi.string().optional(),
-  //   gstin: Joi.string().optional()
-  // }).required()
-}).required();
-
-
-module.exports = {
-  registerSchema
-};
+exports.registerSchema = z.object({
+  user: z.object({
+    name: z.string().min(2),
+    email: z.string().email(),
+    password: z.string().min(6),
+    phone: z.string().optional(),
+    role: z.enum(['SME_USER', 'ADMIN', 'CA_USER']).optional()
+  })
+});

@@ -4,7 +4,7 @@ const isSameOrBefore = require('dayjs/plugin/isSameOrBefore');
 
 
 exports.createSlots = async (user, payload) => {
-    const { date, startTime, endTime, slotDuration } = payload;
+    const { date, startTime, endTime, slotDuration, buffer } = payload;
     const caProfile = await prisma.cAProfile.findUnique({
         where: { userId: user.userId }
     });
@@ -27,7 +27,8 @@ exports.createSlots = async (user, payload) => {
             endTime: slotEnd.toDate()
         });
 
-        current = slotEnd;
+        current = slotEnd.add(buffer, "minute");
+        if (current.isSameOrAfter(end)) break;
     }
     // console.log(slots.map(s =>
     //     `${dayjs(s.startTime).format('HH:mm')} - ${dayjs(s.endTime).format('HH:mm')}`

@@ -11,7 +11,7 @@ router.use(auth);
 
 router.get('/me', controller.getCurrentUser);
 
-router.use(allowRoles('ADMIN'));
+// router.use(allowRoles('ADMIN'));
 
 router.post('/', validate(validator.createUserSchema), controller.createUser);
 router.get('/', controller.listUsers);

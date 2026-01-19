@@ -5,9 +5,7 @@ const { registerSchema } = require('./auth.validator');
 
 router.post(
     '/register',
-    validate({
-        body: registerSchema
-    }),
+    validate(registerSchema),
     controller.register);
 
 router.post(
