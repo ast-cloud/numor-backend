@@ -9,12 +9,31 @@ exports.createUserSchema = z.object({
 })
 
 exports.updateUserSchema = z.object({
-    name: z.string().min(2).max(100).optional(),
-    password: z.string().min(6).max(100).optional(),
-    address: z.string().optional(),
-    phone: z.string().optional(),
-    role: z.string().optional(),
-})
+  name: z.string().min(2).max(100).optional(),
+
+  phone: z
+    .string()
+    .min(8)
+    .max(15)
+    .optional(),
+
+  address: z
+    .string()
+    .max(255)
+    .optional(),
+
+  password: z
+    .string()
+    .min(6)
+    .max(100)
+    .optional(),
+
+  role: z
+    .enum(['SME_USER', 'ADMIN', 'CA']) // match Prisma Role enum
+    .optional(),
+
+  isActive: z.boolean().optional(),
+});
 
 exports.updateStatusSchema = z.object({
     isActive: z.boolean()
