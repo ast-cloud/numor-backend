@@ -17,10 +17,10 @@ router.get('/me', controller.getCurrentUser);
 // // router.get('/', controller.listUsers);
 // router.get('/:id', controller.getUser);
 router.put('/update', validate(validator.updateUserSchema), controller.updateUser);
-router.patch(
-    '/:id/status',
-    validate(validator.updateStatusSchema),
-    controller.updateUserStatus
-);
+// router.patch(
+//     '/:id/status',
+//     validate(validator.updateStatusSchema),
+//     controller.updateUserStatus
+// );
 
 module.exports = router;
