@@ -24,8 +24,8 @@ router.get('/health', (req, res) => {
 
 // Mount modules
 router.use('/auth', authRoutes);
-router.use('/users', userRoutes);
-router.use('/organizations', orgRoutes);
+router.use('/user', userRoutes);
+router.use('/organization', orgRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/dashboard', dashboardRoutes);
