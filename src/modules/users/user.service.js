@@ -57,6 +57,7 @@ exports.getUser = async (admin, userId)=>{
             id: true,
             email: true,
             name: true,
+            phone: true,
             userType: true,
             isActive: true,
             createdAt: true,
