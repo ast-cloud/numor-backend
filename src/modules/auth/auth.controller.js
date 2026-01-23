@@ -80,9 +80,9 @@ async function googleLogin(req, res, next) {
     res.json({
       success: true,
       message: "Google login successful",
-      // data: {
-      //   user,
-      // },
+      data: {
+        user,
+      },
     });
   } catch (err) {
     res.clearCookie("access_token");
