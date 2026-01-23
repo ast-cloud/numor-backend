@@ -4,7 +4,7 @@ const { signToken } = require('../../config/jwt');
 const fetch = require('node-fetch');
 
 async function registerUser(data) {
-    const { user, organization } = data;
+    const { user } = data;
 
     if (!user.email) {
         throw new Error("User email is required");
@@ -16,7 +16,33 @@ async function registerUser(data) {
         });
 
         if (existingUser) {
-            throw new Error('User with this email already exists');
+            if (existingUser.role === user.role)
+                throw new Error('User with this email already exists');
+            else if (existingUser.role == "CA_USER" && user.role == "SME_USER")
+                throw new Error('User is already registered as CA.');
+            else if (existingUser.role == "SME_USER" && user.role == "CA_USER") {
+                const upgradedUser = await tx.user.update({
+                    where: { id: existingUser.id },
+                    data: {
+                        role: "CA_USER"
+                    },
+                    include: {
+                        organization: true,
+                    },
+                })
+                const token = signToken(
+                    {
+                        userId: upgradedUser.id.toString(),
+                        orgId: upgradedUser.orgId.toString(),
+                        role: upgradedUser.role,
+                        userType: upgradedUser.userType,
+                    },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '7d' }
+                );
+
+                return { token, user: upgradedUser };
+            }
         }
 
         const org = await tx.organization.create({
@@ -115,7 +141,7 @@ async function googleAuth(code, user_type_for_signup) {
         redirect_uri = process.env.GOOGLE_REDIRECT_URI_SME_SIGNUP;
         role = "SME_USER";
     }
-    else{
+    else {
         redirect_uri = process.env.GOOGLE_REDIRECT_URI_LOGIN;
     }
 
@@ -184,7 +210,7 @@ async function googleAuth(code, user_type_for_signup) {
                 googleId: sub,
                 authProvider: "GOOGLE",
                 userType: "INTERNAL",
-                role: role ?? "SME_USER", 
+                role: role ?? "SME_USER",
             },
         });
     }
