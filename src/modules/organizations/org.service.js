@@ -13,7 +13,7 @@ function update(orgId, data) {
       name: data.name,
       phone: data.phone,
       address: data.address,
-      gstin: data.gstin,
+      taxId: data.taxId,
       logoUrl: data.logoUrl,
     },
   });
