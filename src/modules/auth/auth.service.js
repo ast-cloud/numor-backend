@@ -39,7 +39,7 @@ async function registerUser(data) {
                 // address: user.address,
                 passwordHash,
                 authProvider: 'LOCAL',
-                userType: 'INTERNAL', 
+                userType: 'INTERNAL',
                 role: user.role || 'SME_USER',
             },
             include: {
@@ -98,35 +98,65 @@ async function loginUser(email, password) {
 
 }
 
-async function googleAuth(code) {
+async function googleAuth(body) {
+    const {
+        code,
+        GOOGLE_REDIRECT_URI_CA_SIGNUP,
+        GOOGLE_REDIRECT_URI_SME_SIGNUP,
+        GOOGLE_REDIRECT_URI_LOGIN
+    } = body;
+
+    if (!code) {
+        throw new Error("Authorization code is required");
+    }
+
+    let redirect_uri;
+    let role;
+
+    if (GOOGLE_REDIRECT_URI_CA_SIGNUP === process.env.GOOGLE_REDIRECT_URI_CA_SIGNUP) {
+        redirect_uri = process.env.GOOGLE_REDIRECT_URI_CA_SIGNUP;
+        role = "CA_USER";
+    }
+    else if (GOOGLE_REDIRECT_URI_SME_SIGNUP === process.env.GOOGLE_REDIRECT_URI_SME_SIGNUP) {
+        redirect_uri = process.env.GOOGLE_REDIRECT_URI_SME_SIGNUP;
+        role = "SME_USER";
+    }
+    else if (GOOGLE_REDIRECT_URI_LOGIN === process.env.GOOGLE_REDIRECT_URI_LOGIN) {
+        redirect_uri = process.env.GOOGLE_REDIRECT_URI_LOGIN;
+        role = null; // login → do not override role
+    }
+    else {
+        throw new Error("Invalid redirect URI");
+    }
+
 
     const params = new URLSearchParams({
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
-      grant_type: "authorization_code",
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri,
+        grant_type: "authorization_code",
     });
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString()
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
     });
 
     if (!tokenRes.ok) {
-      const error = await tokenRes.text();
-      console.error("Google token error:", error);
-      throw new Error("Failed to exchange code for token");
+        const error = await tokenRes.text();
+        console.error("Google token error:", error);
+        throw new Error("Failed to exchange code for token");
     }
 
     const { id_token } = await tokenRes.json();
-    const googleUser = JSON.parse(
-      Buffer.from(id_token.split(".")[1], "base64").toString()
-    );
 
+    const googleUser = JSON.parse(
+        Buffer.from(id_token.split(".")[1], "base64").toString()
+    );
 
     const { sub, email, name, picture } = googleUser;
 
@@ -144,7 +174,7 @@ async function googleAuth(code) {
                 where: { id: user.id },
                 data: {
                     googleId: sub,
-                    authProvider: 'GOOGLE',
+                    authProvider: "GOOGLE",
                 },
             });
         }
@@ -156,15 +186,16 @@ async function googleAuth(code) {
                 email,
             },
         });
+
         user = await prisma.user.create({
             data: {
                 orgId: org.id,
                 name,
                 email,
                 googleId: sub,
-                authProvider: 'GOOGLE',
-                userType: 'INTERNAL',
-                role: 'SME_USER',
+                authProvider: "GOOGLE",
+                userType: "INTERNAL",
+                role: role ?? "SME_USER", 
             },
         });
     }
@@ -178,6 +209,7 @@ async function googleAuth(code) {
 
     return { token, user };
 }
+
 
 function convertBigIntToString(obj) {
     if (typeof obj === 'bigint') {
