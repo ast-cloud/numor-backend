@@ -24,7 +24,7 @@ model Organization {
   email    String  @unique
   phone    String?
   address  String?
-  gstin    String?
+  taxId    String?
   logoUrl  String?
   isActive Boolean @default(true)
 
