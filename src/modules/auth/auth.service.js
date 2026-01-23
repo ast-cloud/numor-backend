@@ -98,13 +98,7 @@ async function loginUser(email, password) {
 
 }
 
-async function googleAuth(body) {
-    const {
-        code,
-        GOOGLE_REDIRECT_URI_CA_SIGNUP,
-        GOOGLE_REDIRECT_URI_SME_SIGNUP,
-        GOOGLE_REDIRECT_URI_LOGIN
-    } = body;
+async function googleAuth(code, user_type_for_signup) {
 
     if (!code) {
         throw new Error("Authorization code is required");
@@ -113,22 +107,14 @@ async function googleAuth(body) {
     let redirect_uri;
     let role;
 
-    if (GOOGLE_REDIRECT_URI_CA_SIGNUP === process.env.GOOGLE_REDIRECT_URI_CA_SIGNUP) {
+    if (user_type_for_signup === "CA_USER") {
         redirect_uri = process.env.GOOGLE_REDIRECT_URI_CA_SIGNUP;
         role = "CA_USER";
     }
-    else if (GOOGLE_REDIRECT_URI_SME_SIGNUP === process.env.GOOGLE_REDIRECT_URI_SME_SIGNUP) {
+    else if (user_type_for_signup === "SME_USER") {
         redirect_uri = process.env.GOOGLE_REDIRECT_URI_SME_SIGNUP;
         role = "SME_USER";
     }
-    else if (GOOGLE_REDIRECT_URI_LOGIN === process.env.GOOGLE_REDIRECT_URI_LOGIN) {
-        redirect_uri = process.env.GOOGLE_REDIRECT_URI_LOGIN;
-        role = null; // login → do not override role
-    }
-    else {
-        throw new Error("Invalid redirect URI");
-    }
-
 
     const params = new URLSearchParams({
         code,

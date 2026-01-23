@@ -68,8 +68,8 @@ async function logout(req, res) {
 
 async function googleLogin(req, res, next) {
   try {
-    const { code } = req.body;
-    const { token, user } = await authService.googleAuth(code);
+    const { code, user_type_for_signup } = req.body;
+    const { token, user } = await authService.googleAuth(code, user_type_for_signup);
 
     res.cookie("access_token", token, {
       httpOnly: true,
