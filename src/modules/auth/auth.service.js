@@ -115,6 +115,9 @@ async function googleAuth(code, user_type_for_signup) {
         redirect_uri = process.env.GOOGLE_REDIRECT_URI_SME_SIGNUP;
         role = "SME_USER";
     }
+    else{
+        redirect_uri = process.env.GOOGLE_REDIRECT_URI_LOGIN;
+    }
 
     const params = new URLSearchParams({
         code,
