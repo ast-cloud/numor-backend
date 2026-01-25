@@ -61,6 +61,7 @@ exports.getUser = async (admin, userId)=>{
             userType: true,
             isActive: true,
             createdAt: true,
+            role: true
         }
     });
     if (!user) throw new Error('User not found');
