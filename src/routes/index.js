@@ -16,6 +16,7 @@ const caBooking = require('../modules/ca-connect/ca-booking/caBooking.routes');
 const caReview = require('../modules/ca-connect/ca-review/caReview.routes');
 // const caAdmin = require('../modules/ca-connect/admin/caAdmin.routes');
 const caSlots = require('../modules/ca-connect/ca-slots/caSlot.routes');
+const chatBot = require('../modules/ai/chatbot/chatBot.routes');
 
 // Health check
 router.get('/health', (req, res) => {
@@ -38,6 +39,7 @@ router.use('/ca-bookings', caBooking);
 router.use('/ca-reviews', caReview);
 // router.use('/ca/admin', caAdmin);
 router.use('/ca-slots', caSlots);
+router.use('/chatbot', chatBot);
 
 
 module.exports = router;

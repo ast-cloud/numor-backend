@@ -1,9 +1,10 @@
 const { generateBookingCode } = require('../../../utils/bookingCode');
 const prisma = require('../../../config/database');
-const dayjs = require('dayjs');
+// const dayjs = require('dayjs');
 const { sendBookingEmails } = require('../../../services/email.service');
 const zoomService = require('../../../services/zoom.service');
 const { initiatePhonePePayment } = require('../../../services/phonepe.service');
+const dayjs = require("../../../utils/dayjs");
 
 
 exports.phonepeWebhook = async (req, res) => {

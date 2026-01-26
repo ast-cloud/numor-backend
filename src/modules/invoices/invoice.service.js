@@ -70,7 +70,13 @@ async function saveInvoiceFromPreview(user, payload) {
     });
 }
 
-async function listInvoices(user, page, limit) {
+async function listInvoices(user, page=1, limit=10) {
+    page = Number(page);
+    limit = Number(limit);
+
+    if (Number.isNaN(page) || page < 1) page = 1;
+    if (Number.isNaN(limit) || limit < 1) limit = 10;
+
     const offset = (page - 1) * limit;
     return prisma.invoiceBill.findMany({
         where: {
