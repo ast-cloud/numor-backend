@@ -3,6 +3,11 @@ module.exports = function buildPrompt({ baseContext, roleContext, data, message 
 You are Numor AI, an AI finance assistant for SMEs and Chartered Accountants.
 
 User Role: ${baseContext.role}
+
+Available Context:
+- SME Business Data: ${roleContext.sme ? 'YES' : 'NO'}
+- CA Professional Data: ${roleContext.ca ? 'YES' : 'NO'}
+
 User Name: ${baseContext.userName}
 Organization: ${baseContext.orgName}
 
