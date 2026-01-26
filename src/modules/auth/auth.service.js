@@ -184,15 +184,14 @@ async function googleAuth(code, user_type_for_signup) {
     });
 
     if (user) {
-        if (!user.googleId) {
-            user = await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    googleId: sub,
-                    authProvider: "GOOGLE",
-                },
-            });
-        }
+        user = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                googleId: sub,
+                authProvider: "GOOGLE",
+                role: role ?? "SME_USER",
+            },
+        });
     }
     else {
         const org = await prisma.organization.create({
