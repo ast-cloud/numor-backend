@@ -1,6 +1,7 @@
 const prisma = require('../../../config/database');
 const dayjs = require('dayjs');
 const isSameOrBefore = require('dayjs/plugin/isSameOrBefore');
+const isSameOrAfter = require("dayjs/plugin/isSameOrAfter");
 
 
 exports.createSlots = async (user, payload) => {
@@ -16,20 +17,22 @@ exports.createSlots = async (user, payload) => {
     const end = dayjs(`${date} ${endTime}`);
 
     while (current.isBefore(end)) {
-        const slotEnd = current.add(slotDuration, 'minute');
+        const slotEnd = current.add(slotDuration, "minute");
 
         if (slotEnd.isAfter(end)) break;
 
         slots.push({
             caProfileId: caProfile.id,
-            date: dayjs(date).startOf('day').toDate(),
+            date: dayjs(date).startOf("day").toDate(),
             startTime: current.toDate(),
-            endTime: slotEnd.toDate()
+            endTime: slotEnd.toDate(),
         });
 
         current = slotEnd.add(buffer, "minute");
-        if (current.isSameOrAfter(end)) break;
+
+        if (!current.isBefore(end)) break;
     }
+
     // console.log(slots.map(s =>
     //     `${dayjs(s.startTime).format('HH:mm')} - ${dayjs(s.endTime).format('HH:mm')}`
     // ));
