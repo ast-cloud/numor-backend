@@ -1,9 +1,9 @@
 module.exports = function buildBaseContext(user) {
   return {
-    userName: user.name,
+    userId: user.userId,
     role: user.role,
     orgId: user.orgId,
-    orgName: user.organization?.name
+    userType: user.userType
   };
 };
 
