@@ -1,62 +1,77 @@
 const { tool } = require("@langchain/core/tools");
 const prisma = require("../../../../config/database");
 
-const getCASlots = tool(
-  async ({ caProfileId, date, status }) => {
-    return prisma.cASlot.findMany({
-      where: {
-        caProfileId: BigInt(caProfileId),
-        ...(date
-          ? {
-              date: {
-                gte: new Date(date + "T00:00:00.000Z"),
-                lt: new Date(date + "T23:59:59.999Z"),
-              },
-            }
-          : {}),
-        ...(status ? { status } : {}),
-      },
-      orderBy: {
-        startTime: "asc",
-      },
+const fetchCASlots = tool(
+  async ({ caProfileId, limit = 50 }, config) => {
+    const { role, userId } = config.context;
+
+    let whereClause = {};
+
+    // 🧠 Case 1: CA user → fetch own slots
+    if (role === "CA_USER") {
+      const caProfile = await prisma.cAProfile.findUnique({
+        where: { userId: BigInt(userId) },
+        select: { id: true },
+      });
+
+      if (!caProfile) {
+        throw new Error("CA profile not found");
+      }
+
+      whereClause.caProfileId = caProfile.id;
+    }
+
+    // 🧠 Case 2: SME user explicitly provided CA
+    if (role === "SME_USER" && caProfileId) {
+      whereClause.caProfileId = BigInt(caProfileId);
+    }
+
+    // 🧠 Case 3: SME user + no CA specified → ALL CAs
+    // whereClause remains empty → fetch all slots
+
+    const slots = await prisma.cASlot.findMany({
+      where: whereClause,
+      orderBy: [
+        { date: "asc" },
+        { startTime: "asc" },
+      ],
+      take: limit,
       select: {
         id: true,
         date: true,
         startTime: true,
         endTime: true,
         status: true,
-        bookingId: true,
+        caProfileId: true,
       },
+    });
+
+    return JSON.stringify({
+      count: slots.length,
+      slots,
     });
   },
   {
-    name: "getCASlots",
+    name: "fetchCASlots",
     description: `
 Fetch CA time slots.
-Use when user asks about:
-- available CA slots
-- booked slots
-- CA schedule for a date
+
+Behavior:
+- CA users → fetch their own slots
+- SME users + caProfileId → fetch that CA’s slots
+- SME users without caProfileId → fetch slots for ALL CAs
+
+Returns raw slot data.
+LLM must handle filtering (AVAILABLE), grouping, and explanation.
 `,
     schema: {
       type: "object",
       properties: {
-        caProfileId: {
-          type: "string",
-          description: "CA profile ID",
-        },
-        date: {
-          type: "string",
-          description: "Date in YYYY-MM-DD format",
-        },
-        status: {
-          type: "string",
-          enum: ["AVAILABLE", "BOOKED", "CANCELLED"],
-        },
+        caProfileId: { type: "string" },
+        limit: { type: "number" },
       },
-      required: ["caProfileId"],
     },
   }
 );
 
-module.exports = { getCASlots };
+module.exports = { fetchCASlots };

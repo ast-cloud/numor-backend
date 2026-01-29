@@ -37,7 +37,10 @@ async function handleChat(user, message) {
 
   const result = await numorAgent.invoke(
   {
-    messages: [{ role: "user", content: message }],
+    messages: [
+      // { role: "system", content: systemPromptContent },
+      { role: "user", content: message },
+    ],
   },
   {
     configurable: {

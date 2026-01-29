@@ -1,9 +1,17 @@
+const { tool } = require("@langchain/core/tools");
+const prisma = require("../../../../config/database");
+
 const getExpenses = tool(
-  async ({ orgId, category, limit = 10 }) => {
-    return prisma.expenseBill.findMany({
+  async ({ limit = 50 }, config) => {
+    const { userId } = config.context;
+
+    if (!userId) {
+      throw new Error("Missing userId in context");
+    }
+
+    const expenses = await prisma.expenseBill.findMany({
       where: {
-        orgId: BigInt(orgId),
-        ...(category ? { category } : {}),
+        ...(userId ? { userId: BigInt(userId) } : {}),
       },
       orderBy: { expenseDate: "desc" },
       take: limit,
@@ -14,26 +22,25 @@ const getExpenses = tool(
         totalAmount: true,
         category: true,
         paymentMethod: true,
+        ocrExtracted: true,
+        ocrConfidence: true,
       },
     });
+
+    return JSON.stringify(expenses);
   },
   {
-    name: "getExpenses",
+    name: "GetExpenses",
     description: `
-Fetch expense list.
-Use when user asks:
-- list expenses
-- recent expenses
-- expenses by category
+Fetch raw expense data for the authenticated user or organization.
+Do NOT apply business logic or filters.
+LLM must perform all filtering, grouping, comparisons, and analysis.
 `,
     schema: {
       type: "object",
       properties: {
-        orgId: { type: "string" },
-        category: { type: "string" },
         limit: { type: "number" },
       },
-      required: ["orgId"],
     },
   }
 );
