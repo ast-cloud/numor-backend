@@ -9,10 +9,30 @@ const errorMiddleware = require('./middlewares/error.middleware');
 const cookieParser = require("cookie-parser");
 
 const app = express();
-
 app.use(cookieParser());
+app.use((req, res, next) => {
+  console.log('Request URL:', req.originalUrl);
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
 app.use(express.json());
-app.use(cors());
+allowedOrigins = [
+    'https://numor.app',
+    'https://www.numor.app',
+];
+app.use(cors(
+    {
+        origin: function (origin, callback) {
+            console.log('CORS origin:', origin);
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },  
+        credentials: true,  
+    }
+));
 app.use(helmet());
 app.use(morgan('dev'));
 
