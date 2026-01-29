@@ -1,3 +1,6 @@
+const { tool } = require("@langchain/core/tools");
+const prisma = require("../../../../config/database");
+
 const getExpenseDetails = tool(
   async ({ expenseId }) => {
     return prisma.expenseBill.findUnique({
