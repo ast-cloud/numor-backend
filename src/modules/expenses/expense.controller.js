@@ -24,7 +24,7 @@ exports.previewOCR = async function (req, res) {
   }
 }
 
-exports.confirmOCR = async function (req, res) {
+exports.confirmExpense = async function (req, res) {
   try {
     const payload = req.body;
     const user = req.user; // from auth middleware
@@ -33,7 +33,7 @@ exports.confirmOCR = async function (req, res) {
 
     res.json({ success: true, invoice });
   } catch (err) {
-    console.error('Error in confirmOCR:', err);
+    console.error('Error in confirmExpense:', err);
     res.status(400).json({
       success: false,
       message: err.message,

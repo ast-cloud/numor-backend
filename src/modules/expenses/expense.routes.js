@@ -3,23 +3,23 @@ const auth = require('../../middlewares/auth.middleware');
 const upload = require('../../config/ocr');
 const controller = require('./expense.controller');
 
+// router.post(
+//   '/ocr/uploadExpense',
+//   auth,
+//   upload.single('file'),
+//   controller.previewOCR
+// );
 router.post(
-  '/ocr/uploadExpense',
-  auth,
-  upload.single('file'),
-  controller.previewOCR
-);
-router.post(
-  '/ocr/uploadExpenseForAI',
+  '/uploadExpenseForAI',
   auth,
   upload.single('file'),
   controller.previewExpense
 );
 
 router.post(
-  '/ocr/saveExpense',
+  '/saveExpense',
   auth,
-  controller.confirmOCR
+  controller.confirmExpense
 )
 
 router.get(
