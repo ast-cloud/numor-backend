@@ -476,4 +476,3 @@ model CASlot {
   @@index([status])
   @@map("ca_slots")
 }
-

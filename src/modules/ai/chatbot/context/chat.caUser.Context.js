@@ -1,4 +1,4 @@
-const prisma = require('../../../config/database');
+const prisma = require('../../../../config/database');
 
 module.exports = async function caContext(user) {
   if (!user.caProfile) {
