@@ -6,9 +6,10 @@ const { SYSTEM_PROMPT } = require("./system.prompt");
 const { getInvoices } = require("../tools/user.listInvoices.tool");
 const { listInvoiceItems } = require("../tools/user.invoiceItems.tool");
 const { getExpenses } = require("../tools/user.listExpenses.tool");
-const {fetchCASlots} = require("../tools/caSlot.tool");
-const {fetchCAReviews} = require("../tools/caReview.tool");
-const {fetchCABookings} = require("../tools/caBooking.tool");
+const { fetchCASlots } = require("../tools/caSlot.tool");
+const { fetchCAReviews } = require("../tools/caReview.tool");
+const { fetchCABookings } = require("../tools/caBooking.tool");
+const summaryMiddleware = require("../middleware/summarizationMiddleware");
 
 const contextSchema = {
   type: "object",
@@ -39,7 +40,10 @@ const numorAgent = createAgent({
     listInvoiceItems
   ],
   checkpointer,
-  contextSchema
+  contextSchema,
+   middleware: [
+    summaryMiddleware, // ✅ just pass it directly
+  ],
 });
 
 module.exports = {
