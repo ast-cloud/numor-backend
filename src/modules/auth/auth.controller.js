@@ -8,6 +8,7 @@ async function register(req, res) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      domain: ".numor.com",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -35,6 +36,7 @@ async function login(req, res) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax", // or "lax"
+      domain: ".numor.com",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -75,6 +77,7 @@ async function googleLogin(req, res, next) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
+      domain: ".numor.com",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     res.json({
