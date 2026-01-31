@@ -61,6 +61,7 @@ async function logout(req, res) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
+    domain: ".numor.app",
   });
   res.json({
     success: true,
