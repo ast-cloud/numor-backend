@@ -59,8 +59,8 @@ async function login(req, res) {
 async function logout(req, res) {
   res.clearCookie("access_token", {
     httpOnly: true,
-    secure: true,
-    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
   });
   res.json({
     success: true,
