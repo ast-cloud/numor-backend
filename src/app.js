@@ -9,6 +9,7 @@ const errorMiddleware = require('./middlewares/error.middleware');
 const cookieParser = require("cookie-parser");
 
 const app = express();
+app.use(helmet());
 app.use(cookieParser());
 app.use((req, res, next) => {
   console.log('Request URL:', req.originalUrl);
