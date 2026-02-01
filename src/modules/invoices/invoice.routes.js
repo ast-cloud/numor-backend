@@ -53,4 +53,10 @@ router.get(
   controller.getInvoicePdf
 );
 
+router.get(
+  '/:id/pdf/stream',
+  auth,
+  controller.streamInvoicePdfStatus
+)
+
 module.exports = router;
