@@ -42,7 +42,7 @@ const numorAgent = createAgent({
   checkpointer,
   contextSchema,
    middleware: [
-    summaryMiddleware, // ✅ just pass it directly
+    summaryMiddleware, 
   ],
 });
 

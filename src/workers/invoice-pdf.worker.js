@@ -65,6 +65,19 @@ async function handleInvoice(invoiceId) {
             pdfKey
         }
     });
+
+    // 🔥 ADD THIS BLOCK (ONLY THIS)
+    await redis.publish(
+        'invoice-pdf-events',
+        JSON.stringify({
+            userId: invoice.customerId.toString(),
+            invoiceId: invoice.id.toString(),
+            status: 'READY',
+            pdfKey
+        })
+    );
+
+    console.log('📣 Published PDF READY event', invoice.id.toString());
 }
 
 // async function run() {
