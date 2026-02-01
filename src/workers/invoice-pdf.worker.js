@@ -52,7 +52,7 @@ async function handleInvoice(invoiceId) {
     });
 
     if (!invoice || invoice.pdfStatus === 'READY') return;
-
+    // console.log('calling generateInvoicePdf for invoice:', invoice.id);
     const pdfBuffer = await pdfService.generateInvoicePdf(invoice);
 
     const path = `invoices/${invoice.orgId}/${invoice.invoiceNumber}.pdf`;
@@ -79,42 +79,3 @@ async function handleInvoice(invoiceId) {
 
     console.log('📣 Published PDF READY event', invoice.id.toString());
 }
-
-// async function run() {
-//   while (true) {
-//     const job = await redis.brpop('numor-invoice-pdf-queue', 0);
-//     const { invoiceId } = JSON.parse(job.element);
-
-//     try {
-//       await prisma.invoiceBill.update({
-//         where: { id: BigInt(invoiceId) },
-//         data: { pdfStatus: 'PROCESSING' }
-//       });
-
-//       const invoice = await prisma.invoiceBill.findUnique({
-//         where: { id: BigInt(invoiceId) },
-//         include: { items: true, organization: true }
-//       });
-
-//       const pdfBuffer = await pdfService.generateInvoicePdf(invoice);
-
-//       const path = `invoices/${invoice.orgId}/${invoice.invoiceNumber}.pdf`;
-//       const pdfUrl = await storage.upload(path, pdfBuffer);
-
-//       await prisma.invoiceBill.update({
-//         where: { id: BigInt(invoiceId) },
-//         data: {
-//           pdfStatus: 'READY',
-//           pdfUrl
-//         }
-//       });
-//     } catch (err) {
-//       await prisma.invoiceBill.update({
-//         where: { id: BigInt(invoiceId) },
-//         data: { pdfStatus: 'FAILED' }
-//       });
-//     }
-//   }
-// }
-
-// run();
