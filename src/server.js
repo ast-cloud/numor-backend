@@ -2,6 +2,7 @@
 require('dotenv').config();
 const app = require('./app');
 const { Worker } = require('worker_threads');
+const {initCheckpointer} = require('./modules/ai/chatbot/agent/numor.agent');
 
 
 const PORT = process.env.PORT || 4000;
@@ -30,3 +31,8 @@ if (process.env.ENABLE_PDF_WORKER === 'true') {
     console.log('PDF Worker exited with code:', code);
   });
 }
+
+(async () => {
+  await initCheckpointer();
+  console.log("✅ LangGraph Postgres memory ready");
+})();
