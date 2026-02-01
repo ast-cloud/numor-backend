@@ -30,36 +30,106 @@ async function previewInvoiceOCR(filePath) {
 async function saveInvoiceFromPreview(user, payload) {
     return await prisma.$transaction(async (tx) => {
 
+        const subtotal = payload.subtotal ?? 0;
+        const discount = payload.discount ?? 0;
+        const taxAmount = payload.taxAmount ?? 0;
+        const shippingCost = payload.shippingCost ?? 0;
+
+        const totalAmount =
+            payload.totalAmount ??
+            (subtotal - discount + taxAmount + shippingCost);
+
+        const paidAmount = payload.paidAmount ?? 0;
+        const balanceDue = totalAmount - paidAmount;
+
+        const exchangeRate = payload.exchangeRate ?? 1;
+        const baseAmount = totalAmount * exchangeRate;
+
         // 1️⃣ Create invoice
         const invoice = await tx.invoiceBill.create({
             data: {
                 orgId: BigInt(user.orgId),
-                customerId: BigInt(user.userId), // assuming self-billing
+                customerId: BigInt(user.userId),
                 clientId: payload.clientId ? BigInt(payload.clientId) : null,
-                invoiceNumber: payload.invoiceNumber || `INV-${user.orgId}-${new Date().getFullYear()}-${Date.now()}`,
-                issueDate: payload.invoiceDate
-                    ? new Date(payload.invoiceDate)
-                    : new Date(),
-                dueDate: payload.dueDate
-                    ? new Date(payload.dueDate)
-                    : new Date(),
-                subtotal: payload.subtotal ?? 0,
-                taxAmount: payload.taxAmount ?? 0,
-                totalAmount: payload.totalAmount,
-                status: 'CONFIRMED',
-                category: payload.category || 'OTHER'
+
+                invoiceNumber:
+                    payload.invoiceNumber ||
+                    `INV-${user.orgId}-${new Date().getFullYear()}-${Date.now()}`,
+
+                invoiceType: payload.invoiceType ?? "TAX",
+                issueDate: payload.invoiceDate ? new Date(payload.invoiceDate) : new Date(),
+                dueDate: payload.dueDate ? new Date(payload.dueDate) : new Date(),
+                paymentTerms: payload.paymentTerms ?? "Due on receipt",
+
+                currency: payload.currency ?? "USD",
+                exchangeRate,
+                baseCurrency: payload.baseCurrency ?? "INR",
+                baseAmount,
+
+                subtotal,
+                discount,
+                taxAmount,
+                shippingCost,
+                totalAmount,
+
+                paidAmount,
+                balanceDue,
+
+                status: "CONFIRMED",
+                category: payload.category ?? "OTHER",
+                confirmedAt: new Date(),
+
+                // 🧾 Seller snapshot (important for legal/history)
+                sellerName: payload.seller?.name,
+                sellerEmail: payload.seller?.email,
+                sellerPhone: payload.seller?.phone,
+                sellerStreetAddress: payload.seller?.streetAddress,
+                sellerCity: payload.seller?.city,
+                sellerState: payload.seller?.state,
+                sellerZipCode: payload.seller?.zipCode,
+                sellerCountry: payload.seller?.country,
+                sellerTaxId: payload.seller?.taxId,
+                iecCode: payload.seller?.iecCode,
+                lutFiled: payload.seller?.lutFiled ?? false,
+
+                // 🧮 Tax & compliance
+                taxType: payload.taxType ?? "NONE",
+                placeOfSupply: payload.placeOfSupply,
+                reverseCharge: payload.reverseCharge ?? false,
+                reverseReason: payload.reverseReason,
+                sacCode: payload.sacCode,
+                taxSummary: payload.taxSummary,
+
+                // 🚚 Shipping / trade
+                shipToName: payload.shipTo?.name,
+                shipToAddress: payload.shipTo?.address,
+                countryOfOrigin: payload.countryOfOrigin,
+                countryOfDestination: payload.countryOfDestination,
+                incoterms: payload.incoterms,
+
+                // 💳 Payment
+                bankDetails: payload.bankDetails,
+                paymentLink: payload.paymentLink,
+                bankAddress: payload.bankAddress,
+
+                // ⚖️ Legal
+                jurisdiction: payload.jurisdiction,
+                lateFeePolicy: payload.lateFeePolicy,
+                notes: payload.notes,
             },
         });
 
-        // 2️⃣ Create items
+        // 2️⃣ Create invoice items
         if (Array.isArray(payload.items)) {
             for (const item of payload.items) {
                 await tx.invoiceBillItem.create({
                     data: {
                         invoiceId: invoice.id,
                         itemName: item.name,
+                        description: item.description,
                         quantity: item.quantity ?? 1,
                         unitPrice: item.unitPrice ?? 0,
+                        taxRate: item.taxRate ?? 0,
                         totalPrice: item.total ?? 0,
                     },
                 });
@@ -70,7 +140,7 @@ async function saveInvoiceFromPreview(user, payload) {
     });
 }
 
-async function listInvoices(user, page=1, limit=10) {
+async function listInvoices(user, page = 1, limit = 10) {
     page = Number(page);
     limit = Number(limit);
 
@@ -173,45 +243,146 @@ async function listInvoiceProducts(invoiceId, page, limit) {
 // }
 
 async function confirmAndCreateInvoice(user, data) {
-    // 1) Calculate totals
+    // 1️⃣ Calculate totals safely
     const subtotal = data.items.reduce(
-        (s, i) => s + i.quantity * i.unitPrice,
+        (s, i) => s + (i.quantity ?? 1) * (i.unitPrice ?? 0),
         0
     );
 
     const taxAmount = data.items.reduce(
-        (s, i) => s + (i.quantity * i.unitPrice * i.taxRate) / 100,
+        (s, i) =>
+            s +
+            ((i.quantity ?? 1) *
+                (i.unitPrice ?? 0) *
+                (i.taxRate ?? 0)) /
+            100,
         0
     );
 
-    const totalAmount = subtotal + taxAmount;
+    const discount = data.discount ?? 0;
+    const shippingCost = data.shippingCost ?? 0;
 
-    // 2) Create directly as SENT (or whatever your "confirmed" status is)
-    console.log("user in jwt token is", user.userId, "and orgId is", user.orgId);
+    const totalAmount =
+        subtotal - discount + taxAmount + shippingCost;
+
+    const paidAmount = data.paidAmount ?? 0;
+    const balanceDue = totalAmount - paidAmount;
+
+    const exchangeRate = data.exchangeRate ?? 1;
+    const baseAmount = totalAmount * exchangeRate;
+
+    console.log(
+        "user in jwt token is",
+        user.userId,
+        "and orgId is",
+        user.orgId
+    );
+
+    // 2️⃣ Create CONFIRMED + SENT invoice
     const invoice = await prisma.invoiceBill.create({
         data: {
-            orgId: user.orgId,
-            customerId: user.userId,
-            ...data,
+            // 🔑 Core relations
+            orgId: BigInt(user.orgId),
+            customerId: BigInt(user.userId),
+            clientId: data.clientId ? BigInt(data.clientId) : null,
+
+            // 📄 Invoice identity
+            invoiceNumber:
+                data.invoiceNumber ??
+                `INV-${user.orgId}-${new Date().getFullYear()}-${Date.now()}`,
+            invoiceType: data.invoiceType ?? "TAX",
+
+            issueDate: data.issueDate ? new Date(data.issueDate) : new Date(),
+            dueDate: data.dueDate ? new Date(data.dueDate) : new Date(),
+            paymentTerms: data.paymentTerms ?? "Due on receipt",
+
+            // 💱 Currency
+            currency: data.currency ?? "USD",
+            exchangeRate,
+            baseCurrency: data.baseCurrency ?? "INR",
+            baseAmount,
+
+            // 💰 Amounts
             subtotal,
+            discount,
             taxAmount,
+            shippingCost,
             totalAmount,
-            balanceDue: totalAmount,
-            status: 'SENT',          // <— previously probably 'DRAFT'
-            confirmedAt: new Date(), // <— confirmation timestamp
-            pdfStatus: 'QUEUED',     // <— directly queue PDF generation
+            paidAmount,
+            balanceDue,
+
+            // 📌 Status
+            status: "SENT",
+            confirmedAt: new Date(),
+            sentAt: new Date(),
+            pdfStatus: "QUEUED",
+            category: data.category ?? "OTHER",
+
+            // 🧾 Seller snapshot
+            sellerName: data.seller?.name,
+            sellerEmail: data.seller?.email,
+            sellerPhone: data.seller?.phone,
+            sellerStreetAddress: data.seller?.streetAddress,
+            sellerCity: data.seller?.city,
+            sellerState: data.seller?.state,
+            sellerZipCode: data.seller?.zipCode,
+            sellerCountry: data.seller?.country,
+            sellerTaxId: data.seller?.taxId,
+            iecCode: data.seller?.iecCode,
+            lutFiled: data.seller?.lutFiled ?? false,
+
+            // 🧮 Tax & compliance
+            taxType: data.taxType ?? "NONE",
+            placeOfSupply: data.placeOfSupply,
+            reverseCharge: data.reverseCharge ?? false,
+            reverseReason: data.reverseReason,
+            sacCode: data.sacCode,
+            taxSummary: data.taxSummary,
+
+            // 🚚 Shipping / trade
+            shipToName: data.shipTo?.name,
+            shipToAddress: data.shipTo?.address,
+            countryOfOrigin: data.countryOfOrigin,
+            countryOfDestination: data.countryOfDestination,
+            incoterms: data.incoterms,
+
+            // 💳 Payment
+            bankDetails: data.bankDetails,
+            paymentLink: data.paymentLink,
+            bankAddress: data.bankAddress,
+
+            // ⚖️ Legal
+            jurisdiction: data.jurisdiction,
+            lateFeePolicy: data.lateFeePolicy,
+            notes: data.notes,
+
+            // 📦 Items (EXPLICIT mapping)
             items: {
-                create: data.items
-            }
+                create: data.items.map((item) => ({
+                    itemName: item.name,
+                    description: item.description,
+                    quantity: item.quantity ?? 1,
+                    unitPrice: item.unitPrice ?? 0,
+                    taxRate: item.taxRate ?? 0,
+                    totalPrice:
+                        (item.quantity ?? 1) *
+                        (item.unitPrice ?? 0) +
+                        ((item.quantity ?? 1) *
+                            (item.unitPrice ?? 0) *
+                            (item.taxRate ?? 0)) /
+                        100,
+                })),
+            },
         },
-        include: { items: true }
+        include: { items: true },
     });
 
-    // 3) Queue PDF generation
+    // 3️⃣ Queue PDF generation
     await invoiceQueue.enqueue({ invoiceId: invoice.id });
 
     return invoice;
-};
+}
+
 
 
 async function getInvoice(user, id) {
@@ -245,40 +416,40 @@ async function getSignedPdfUrl(user, id) {
     return storage.getSignedUrl(invoice.pdfKey);
 }
 
-const clients = new Map(); 
+const clients = new Map();
 // key: `${userId}:${invoiceId}` → res
 
-async function openStream ({ req, res, userId, invoiceId }) {
-  const key = `${userId}:${invoiceId}`;
+async function openStream({ req, res, userId, invoiceId }) {
+    const key = `${userId}:${invoiceId}`;
 
-  res.set({
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive'
-  });
-//Calling res.flushHeaders() initiates the response but does not signal the end of the data transfer. You can continue to use res.write() to send data chunks. The connection stays open until res.end() is called.
-  res.flushHeaders();
+    res.set({
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+    });
+    //Calling res.flushHeaders() initiates the response but does not signal the end of the data transfer. You can continue to use res.write() to send data chunks. The connection stays open until res.end() is called.
+    res.flushHeaders();
 
-  clients.set(key, res);
+    clients.set(key, res);
 
-  req.on('close', () => {
-    clients.delete(key);
-  });
+    req.on('close', () => {
+        clients.delete(key);
+    });
 };
 
-async function pushPdfReady ({ userId, invoiceId, signedUrl }) {
-  const key = `${userId}:${invoiceId}`;
-  const client = clients.get(key);
+async function pushPdfReady({ userId, invoiceId, signedUrl }) {
+    const key = `${userId}:${invoiceId}`;
+    const client = clients.get(key);
 
-  if (!client) return;
+    if (!client) return;
 
-  client.write(`event: pdf-ready\n`);
-  client.write(
-    `data: ${JSON.stringify({ status: 'READY', signedUrl })}\n\n`
-  );
+    client.write(`event: pdf-ready\n`);
+    client.write(
+        `data: ${JSON.stringify({ status: 'READY', signedUrl })}\n\n`
+    );
 
-  client.end();
-  clients.delete(key);
+    client.end();
+    clients.delete(key);
 };
 
 
