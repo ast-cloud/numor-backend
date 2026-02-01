@@ -3,7 +3,7 @@ const prisma = require("../../../../config/database");
 
 const listInvoiceItems = tool(
   async ({ invoiceId }, config) => {
-    const userId = config.context.userId;
+    const userId = config.config.configurable.context.userId;
 
     if (!userId) {
       throw new Error("userId missing from context");

@@ -25,9 +25,18 @@ const baseModel = new ChatGoogleGenerativeAI({
   temperature: 0.2,
   maxOutputTokens: 5000,
 });
-const checkpointer = new MemorySaver();
-// const checkpointer = PostgresSaver.fromConnString(process.env.DATABASE_URL);
-// await checkpointer.setup();
+// const checkpointer = new MemorySaver();
+// ---- POSTGRES CHECKPOINTER ----
+const checkpointer = PostgresSaver.fromConnString(
+  process.env.DATABASE_URL,
+);
+// IMPORTANT: run once on app startup
+async function initCheckpointer() {
+  if (process.env.RUN_LANGGRAPH_SETUP === "true") {
+    await checkpointer.setup();
+    console.log("✅ LangGraph tables ensured");
+  }
+}
 
 const numorAgent = createAgent({
   model: baseModel,
@@ -41,11 +50,12 @@ const numorAgent = createAgent({
   ],
   checkpointer,
   contextSchema,
-   middleware: [
-    summaryMiddleware, 
+  middleware: [
+    summaryMiddleware,
   ],
 });
 
 module.exports = {
   numorAgent,
+  initCheckpointer
 };
