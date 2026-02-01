@@ -245,6 +245,43 @@ async function getSignedPdfUrl(user, id) {
     return storage.getSignedUrl(invoice.pdfKey);
 }
 
+const clients = new Map(); 
+// key: `${userId}:${invoiceId}` → res
+
+async function openStream ({ req, res, userId, invoiceId }) {
+  const key = `${userId}:${invoiceId}`;
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+//Calling res.flushHeaders() initiates the response but does not signal the end of the data transfer. You can continue to use res.write() to send data chunks. The connection stays open until res.end() is called.
+  res.flushHeaders();
+
+  clients.set(key, res);
+
+  req.on('close', () => {
+    clients.delete(key);
+  });
+};
+
+async function pushPdfReady ({ userId, invoiceId, signedUrl }) {
+  const key = `${userId}:${invoiceId}`;
+  const client = clients.get(key);
+
+  if (!client) return;
+
+  client.write(`event: pdf-ready\n`);
+  client.write(
+    `data: ${JSON.stringify({ status: 'READY', signedUrl })}\n\n`
+  );
+
+  client.end();
+  clients.delete(key);
+};
+
+
 
 module.exports = {
     previewInvoiceOCR,
@@ -254,6 +291,8 @@ module.exports = {
     previewInvoiceAI,
     confirmAndCreateInvoice,
     getInvoice,
-    getSignedPdfUrl
+    getSignedPdfUrl,
+    openStream,
+    pushPdfReady
 
 };

@@ -108,3 +108,12 @@ exports.getInvoicePdf = async (req, res) => {
     });
   }
 };
+
+exports.streamInvoicePdfStatus = (req, res) => {
+  invoiceService.openStream({
+    req,
+    res,
+    userId: req.user.userId,
+    invoiceId: req.params.id
+  });
+};
