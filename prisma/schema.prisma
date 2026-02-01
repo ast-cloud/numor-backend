@@ -90,7 +90,10 @@ model Client {
   name        String    @db.Citext
   email       String?
   phone       String?
-  address     String?
+  streetAddress     String?
+  city     String?
+  state     String?
+  zipCode     String?
   gstin       String?
   country     String? // ISO country code: IN, US, AE, UK
   companyType String? // Private Ltd, LLP, Individual, etc.
@@ -150,19 +153,16 @@ model InvoiceBill {
 
   // Seller Snapshot
   sellerName    String?
-  sellerAddress String?
+  sellerStreetAddress String?
+  sellerCity String?
+  sellerState String?
+  sellerZipCode String?
+  sellerCountry String?
   sellerEmail   String?
   sellerPhone   String?
-  sellerCountry String?
   sellerTaxId   String? // GSTIN / VAT
   iecCode       String? //Required for international payments (India)
   lutFiled      Boolean @default(false) //Confirms GST zero-rated export compliance
-
-  // Buyer Snapshot
-  buyerName    String?
-  buyerAddress String?
-  buyerCountry String?
-  buyerTaxId   String? // VAT / EIN / GSTIN
 
   // Tax & Compliance
   taxType       String  @default("NONE") // GST | VAT | SALES_TAX | NONE
@@ -182,6 +182,7 @@ model InvoiceBill {
   // Payment
   bankDetails Json? // SWIFT, IBAN, IFSC, PayPal, Wise
   paymentLink String?
+  bankAddress String?
 
   // Legal
   jurisdiction  String? // Which country’s laws apply in case of dispute.

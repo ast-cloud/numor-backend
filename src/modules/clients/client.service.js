@@ -8,26 +8,36 @@ exports.createClient = async (user, data) => {
             data: {
                 userId: BigInt(user.userId),
                 name: data.name,
-                email: data.email,
-                phone: data.phone,
-                address: data.address,
-                gstin: data.gstin,
-                country: data.country,
-                companyType: data.companyType,
-                taxId: data.taxId,
-                taxSystem: data.taxSystem
+                email: data.email ?? null,
+                phone: data.phone ?? null,
+                // Address
+                streetAddress: data.address?.street ?? data.streetAddress ?? null,
+                city: data.address?.city ?? data.city ?? null,
+                state: data.address?.state ?? data.state ?? null,
+                zipCode: data.address?.zipCode ?? data.zipCode ?? null,
+                // 🌍 Business / tax
+                country: data.country ?? null,
+                companyType: data.companyType ?? null,
+                gstin: data.gstin ?? null,
+                taxId: data.taxId ?? null,
+                taxSystem: data.taxSystem ?? "NONE",
+                // ✅ Status
+                isActive: data.isActive ?? true
             }
         });
     } catch (error) {
-        if (error.code === 'P2002') {
-            throw new Error('Client with this name already exists for this user');
+        if (error.code === "P2002") {
+            throw new Error(
+                "Client with this name already exists for this user"
+            );
         }
         throw error;
     }
-}
+};
+
 
 exports.listClient = async (user, page, limit) => {
-    const offset = (page-1) * limit;
+    const offset = (page - 1) * limit;
     // console.log('User:', user);
     return prisma.client.findMany({
         where: {
