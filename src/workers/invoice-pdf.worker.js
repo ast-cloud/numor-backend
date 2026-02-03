@@ -48,11 +48,12 @@ async function handleInvoice(invoiceId) {
 
     const invoice = await prisma.invoiceBill.findUnique({
         where: { id: BigInt(invoiceId) },
-        include: { items: true, organization: true }
+        include: { items: true, organization: true , client: true }
     });
 
+    console.log('Invoice payload:', invoice);
+
     if (!invoice || invoice.pdfStatus === 'READY') return;
-    // console.log('calling generateInvoicePdf for invoice:', invoice.id);
     const pdfBuffer = await pdfService.generateInvoicePdf(invoice);
 
     const path = `invoices/${invoice.orgId}/${invoice.invoiceNumber}.pdf`;

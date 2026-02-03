@@ -1,67 +1,296 @@
 <!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <style>
-    body { font-family: Arial, sans-serif; font-size: 12px; }
-    .header { display: flex; justify-content: space-between; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; }
-    th { background-color: #f4f4f4; }
-  </style>
-</head>
-
-<body>
-
-  <div class="header">
-    <div>
-      <h2>{{sellerName}}</h2>
-      <p>{{sellerAddress}}</p>
-      <p>{{sellerTaxId}}</p>
-    </div>
-
-    <div>
-      <h3>Invoice #{{invoiceNumber}}</h3>
-      <p>Issue Date: {{issueDate}}</p>
-      <p>Due Date: {{dueDate}}</p>
-    </div>
-  </div>
-
-  <hr/>
-
-  <h3>Bill To</h3>
-  <p>{{buyerName}}</p>
-  <p>{{buyerAddress}}</p>
-  <p>{{buyerCountry}}</p>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th>Qty</th>
-        <th>Unit Price</th>
-        <th>Tax</th>
-        <th>Total</th>
-      </tr>
-    </thead>
-
-    <tbody>
-      {{#each items}}
-      <tr>
-        <td>{{itemName}}</td>
-        <td>{{quantity}}</td>
-        <td>{{unitPrice}}</td>
-        <td>{{taxRate}}%</td>
-        <td>{{totalPrice}}</td>
-      </tr>
-      {{/each}}
-    </tbody>
-  </table>
-
-  <h3>Total</h3>
-  <p>Subtotal: {{subtotal}}</p>
-  <p>Tax: {{taxAmount}}</p>
-  <p><strong>Grand Total: {{totalAmount}} {{currency}}</strong></p>
-
-</body>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8" />
+      <title>Invoice</title>
+      <style>
+         body {
+         font-family: Arial, Helvetica, sans-serif;
+         font-size: 12px;
+         color: #333;
+         margin: 0;
+         padding: 24px;
+         }
+         .invoice-box {
+         max-width: 900px;
+         margin: auto;
+         border: 1px solid #e5e7eb;
+         padding: 24px;
+         }
+         .header {
+         display: flex;
+         justify-content: space-between;
+         align-items: flex-start;
+         border-bottom: 2px solid #f59e0b;
+         padding-bottom: 12px;
+         margin-bottom: 20px;
+         }
+         .logo {
+         font-weight: bold;
+         font-size: 20px;
+         color: #f59e0b;
+         }
+         .invoice-title {
+         text-align: right;
+         }
+         .invoice-title h1 {
+         margin: 0;
+         font-size: 22px;
+         letter-spacing: 1px;
+         }
+         .meta {
+         margin-top: 6px;
+         }
+         .two-col {
+         display: flex;
+         justify-content: space-between;
+         gap: 40%;
+         margin-bottom: 20px;
+         }
+         .box {
+         width: 48%;
+         }
+         .box h4 {
+         margin-bottom: 6px;
+         font-size: 13px;
+         color: #111827;
+         }
+         .box p {
+         margin: 2px 0;
+         line-height: 1.4;
+         }
+         table {
+         width: 100%;
+         border-collapse: collapse;
+         margin-top: 20px;
+         }
+         table thead {
+         background: #374151;
+         color: #fff;
+         }
+         table th,
+         table td {
+         padding: 8px;
+         border: 1px solid #e5e7eb;
+         text-align: left;
+         }
+         th.center,
+         td.center {
+         text-align: center;
+         }
+         th.right,
+         td.right {
+         text-align: right;
+         }
+         table th {
+         font-weight: normal;
+         font-size: 12px;
+         }
+         /* Totals */
+         .totals {
+         margin-top: 16px;
+         display: flex;
+         justify-content: flex-end;
+         }
+         .totals table {
+         width: 300px;
+         }
+         .totals td {
+         border: none;
+         padding: 6px;
+         }
+         .totals tr.total-row td {
+         font-weight: bold;
+         border-top: 1px solid #e5e7eb;
+         background: #f9fafb;
+         }
+         .highlight {
+         color: #f59e0b;
+         font-weight: bold;
+         }
+         .note {
+         margin-top: 16px;
+         padding: 10px;
+         background: #fffbeb;
+         border: 1px solid #fde68a;
+         font-size: 11px;
+         }
+         .footer {
+         display: flex;
+         justify-content: space-between;
+         margin-top: 24px;
+         font-size: 11px;
+         }
+         .footer h4 {
+         margin-bottom: 6px;
+         font-size: 12px;
+         }
+         ul {
+         margin: 0;
+         padding-left: 16px;
+         }
+         .no-page-break {
+         page-break-inside: avoid;
+         break-inside: avoid;
+         }
+         .totals,
+         .footer,
+         .note {
+         page-break-inside: avoid;
+         break-inside: avoid;
+         }
+         /* Extra safety for tables */
+         .totals table {
+         page-break-inside: avoid;
+         }
+      </style>
+   </head>
+   <body>
+      <div class="invoice-box">
+         <!-- HEADER -->
+         <div class="header">
+            <div class="logo">NUMOR</div>
+            <div class="invoice-title">
+               <h1>INVOICE</h1>
+               <div class="meta">
+                  Invoice No: {{invoiceNumber}}<br />
+                  Issue Date: {{issueDate}}<br />
+                  Due Date: {{dueDate}}<br />
+                  Currency: {{currency}}
+               </div>
+            </div>
+         </div>
+         <!-- SELLER / BUYER -->
+         <div class="two-col">
+            <div class="box">
+               <h4>Seller (From)</h4>
+               <p><strong>{{sellerName}}</strong></p>
+               <p>{{sellerStreetAddress}}</p>
+               <p>{{sellerCity}}, {{sellerState}} {{sellerZipCode}}</p>
+               <p>{{sellerCountry}}</p>
+               <p>Tax ID: {{sellerTaxId}}</p>
+               <p>Email: {{sellerEmail}}</p>
+               <p>Phone: {{sellerPhone}}</p>
+               {{#if placeOfSupply}}
+               <p>Place of Supply: {{placeOfSupply}}</p>
+               {{/if}}
+               {{#if sacCode}}
+               <p>SAC Code: {{sacCode}}</p>
+               {{/if}}
+            </div>
+            <div class="box">
+               <h4>Bill To</h4>
+               <p><strong>{{client.name}}</strong></p>
+               <p>{{client.streetAddress}}</p>
+               <p>{{client.city}}, {{client.state}} {{client.zip}}</p>
+               <p>{{client.country}}</p>
+               <p>{{client.email}}</p>
+               <p>{{client.phone}}</p>
+               <p>{{client.companyType}}</p>
+            </div>
+         </div>
+         <!-- ITEMS -->
+         <table>
+            <thead>
+               <tr>
+                  <th>#</th>
+                  <th>Description</th>
+                  <th class="center">Qty</th>
+                  <th class="center">Unit</th>
+                  <th class="center">Tax %</th>
+                  <th class="center">Total</th>
+               </tr>
+            </thead>
+            <tbody>
+               {{#each items}}
+               <tr>
+                  <td>{{@index}}</td>
+                  <td>{{itemName}}</td>
+                  <td class="center">{{quantity}}</td>
+                  <td class="center">{{unitPrice}}</td>
+                  <td class="center">{{taxRate}}%</td>
+                  <td class="center">{{totalPrice}}</td>
+               </tr>
+               {{/each}}
+            </tbody>
+         </table>
+         <div class="no-page-break">
+            <!-- TOTALS -->
+            <div class="totals">
+               <table>
+                  <tr>
+                     <td>Subtotal</td>
+                     <td class="right">{{subtotal}}</td>
+                  </tr>
+                  <tr>
+                     <td>Discount</td>
+                     <td class="right">- {{discount}}</td>
+                  </tr>
+                  {{#if taxSummary}}
+                  {{#each taxSummary}}
+                  <tr>
+                     <td>{{@key}} ({{rate}}%):</td>
+                     <td class="right">{{amount}}</td>
+                  </tr>
+                  {{/each}}
+                  {{/if}}
+                  <tr>
+                     <td>Tax</td>
+                     <td class="right">{{taxAmount}}</td>
+                  </tr>
+                  <tr>
+                     <td>Shipping</td>
+                     <td class="right">{{shippingCost}}</td>
+                  </tr>
+                  <tr class="total-row">
+                     <td>Total</td>
+                     <td class="right highlight">{{currency}} {{totalAmount}}</td>
+                  </tr>
+                  <tr>
+                     <td>Paid</td>
+                     <td class="right">{{paidAmount}}</td>
+                  </tr>
+                  <tr>
+                     <td>Balance Due</td>
+                     <td class="right">{{balanceDue}}</td>
+                  </tr>
+               </table>
+            </div>
+            <!-- NOTES -->
+            {{#if reverseCharge}}
+            <div class="note">
+               Zero-rated export of services. Subject to reverse charge in the country of receipt.
+            </div>
+            {{/if}}
+            <!-- FOOTER -->
+            <div class="footer">
+               <div>
+                  <h4>Bank / Payment Details</h4>
+                  <p><strong>Bank Name:</strong> {{bankDetails.bankName}}</p>
+                  <p><strong>Account Name:</strong> {{bankDetails.accountName}}</p>
+                  <p><strong>Account Number:</strong> {{bankDetails.accountNumber}}</p>
+                  <p><strong>IFSC:</strong> {{bankDetails.ifsc}}</p>
+                  {{#if bankDetails.swift}}
+                  <p><strong>SWIFT:</strong> {{bankDetails.swift}}</p>
+                  {{/if}}
+                  {{#if bankAddress}}
+                  <p><strong>Bank Address:</strong> {{bankAddress}}</p>
+                  {{/if}}
+                  {{#if paymentLink}}
+                  <p><strong>Payment Link:</strong> {{paymentLink}}</p>
+                  {{/if}}
+               </div>
+               <div>
+                  <h4>Notes / Terms</h4>
+                  <ul>
+                     <li>{{paymentTerms}}</li>
+                     {{#if notes}}
+                     <li>{{notes}}</li>
+                     {{/if}}
+                  </ul>
+               </div>
+            </div>
+         </div>
+      </div>
+   </body>
 </html>

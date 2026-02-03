@@ -27,7 +27,16 @@ function generateInvoicePdf(invoice) {
 
     await page.setContent(htmlWithData, { waitUntil: "networkidle0" });
 
-    const pdfBuffer = await page.pdf({ format: "A4" });
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      margin: {
+        top: '10mm',
+        bottom: '20mm',
+        // left: '15mm',
+        // right: '15mm'
+      }
+    });
     await browser.close();
 
     return pdfBuffer;
