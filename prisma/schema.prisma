@@ -23,7 +23,12 @@ model Organization {
   name     String
   email    String  @unique
   phone    String?
-  address  String?
+  // address  String?
+  streetAddress     String?
+  city     String?
+  state     String?
+  zipCode     String?
+  country     String? // ISO country code: IN, US, AE, UK
   taxId    String?
   logoUrl  String?
   isActive Boolean @default(true)
