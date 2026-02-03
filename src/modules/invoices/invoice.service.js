@@ -53,8 +53,10 @@ async function saveInvoiceFromPreview(user, payload) {
                 clientId: payload.clientId ? BigInt(payload.clientId) : null,
 
                 invoiceNumber:
-                    payload.invoiceNumber ||
-                    `INV-${user.orgId}-${new Date().getFullYear()}-${Date.now()}`,
+                    payload.invoiceNumber ??
+                    `INV-${user.userId}-${(
+                        Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+                    ).toUpperCase()}`,
 
                 invoiceType: payload.invoiceType ?? "TAX",
                 issueDate: payload.invoiceDate ? new Date(payload.invoiceDate) : new Date(),
@@ -271,13 +273,6 @@ async function confirmAndCreateInvoice(user, data) {
     const exchangeRate = data.exchangeRate ?? 1;
     const baseAmount = totalAmount * exchangeRate;
 
-    console.log(
-        "user in jwt token is",
-        user.userId,
-        "and orgId is",
-        user.orgId
-    );
-
     // 2️⃣ Create CONFIRMED + SENT invoice
     const invoice = await prisma.invoiceBill.create({
         data: {
@@ -289,7 +284,9 @@ async function confirmAndCreateInvoice(user, data) {
             // 📄 Invoice identity
             invoiceNumber:
                 data.invoiceNumber ??
-                `INV-${user.orgId}-${new Date().getFullYear()}-${Date.now()}`,
+                `INV-${user.userId}-${(
+                    Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+                ).toUpperCase()}`,
             invoiceType: data.invoiceType ?? "TAX",
 
             issueDate: data.issueDate ? new Date(data.issueDate) : new Date(),
