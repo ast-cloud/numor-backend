@@ -235,7 +235,7 @@
                   {{/each}}
                   {{/if}}
                   <tr>
-                     <td>Tax</td>
+                     <td>Tax ({{effectiveTax}}%)</td>
                      <td class="right">{{taxAmount}}</td>
                   </tr>
                   <tr>
@@ -256,6 +256,7 @@
                   </tr>
                </table>
             </div>
+         </div>
             <!-- NOTES -->
             {{#if reverseCharge}}
             <div class="note">
@@ -290,7 +291,6 @@
                   </ul>
                </div>
             </div>
-         </div>
       </div>
    </body>
 </html>
