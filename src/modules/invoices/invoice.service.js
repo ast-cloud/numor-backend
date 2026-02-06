@@ -260,6 +260,7 @@ async function confirmAndCreateInvoice(user, data) {
             100,
         0
     );
+    const effectiveTax = subtotal ? Number(((taxAmount / subtotal) * 100).toFixed(2)) : 0;
 
     const discount = data.discount ?? 0;
     const shippingCost = data.shippingCost ?? 0;
@@ -307,6 +308,7 @@ async function confirmAndCreateInvoice(user, data) {
             totalAmount,
             paidAmount,
             balanceDue,
+            effectiveTax,
 
             // 📌 Status
             status: "SENT",

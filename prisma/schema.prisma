@@ -11,17 +11,19 @@ enum AuthProvider {
 
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  extensions = [citext]
 }
 
 model Organization {
   id       BigInt  @id @default(autoincrement())
-  name     String
-  email    String  @unique
+  name     String @db.Citext 
+  email    String @db.Citext  @unique
   phone    String?
   // address  String?
   streetAddress     String?
@@ -60,8 +62,8 @@ model User {
   id       BigInt  @id @default(autoincrement())
   orgId    BigInt
   userType String
-  email    String  @unique
-  name     String
+  email    String @db.Citext  @unique
+  name     String @db.Citext 
   phone    String?
   address  String?
 
@@ -92,8 +94,8 @@ model Client {
   id     BigInt @id @default(autoincrement())
   userId BigInt
 
-  name        String    @db.Citext
-  email       String?
+  name        String  @db.Citext 
+  email       String? @db.Citext 
   phone       String?
   streetAddress     String?
   city     String?
@@ -149,6 +151,7 @@ model InvoiceBill {
   totalAmount  Decimal @db.Decimal(15, 2)
   paidAmount   Decimal @default(0.00) @db.Decimal(15, 2) //What client has already paid
   balanceDue   Decimal @default(0.00) @db.Decimal(15, 2) //What’s still pending
+  effectiveTax Decimal? @default(0.00)
 
   status   String    @default("DRAFT") // DRAFT | SENT | PAID | OVERDUE
   category String    @default("OTHER")
@@ -157,13 +160,13 @@ model InvoiceBill {
   paidAt   DateTime?
 
   // Seller Snapshot
-  sellerName    String?
+  sellerName    String? @db.Citext 
   sellerStreetAddress String?
   sellerCity String?
   sellerState String?
   sellerZipCode String?
   sellerCountry String?
-  sellerEmail   String?
+  sellerEmail   String? @db.Citext 
   sellerPhone   String?
   sellerTaxId   String? // GSTIN / VAT
   iecCode       String? //Required for international payments (India)
@@ -338,7 +341,7 @@ model CAProfile {
   calendlyUrl String?
   calComUrl   String?
 
-  zoomEmail      String?
+  zoomEmail      String? @db.Citext 
   whatsappNumber String?
 
   status      CAStatus @default(PENDING) //PENDING | APPROVED | REJECTED | SUSPENDED ||when CA onboard on our platform

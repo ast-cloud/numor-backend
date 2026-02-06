@@ -51,7 +51,7 @@ async function handleInvoice(invoiceId) {
         include: { items: true, organization: true , client: true }
     });
 
-    console.log('Invoice payload:', invoice);
+    // console.log('Invoice payload:', invoice);
 
     if (!invoice || invoice.pdfStatus === 'READY') return;
     const pdfBuffer = await pdfService.generateInvoicePdf(invoice);
