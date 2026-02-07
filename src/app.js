@@ -20,6 +20,8 @@ app.use(express.json());
 allowedOrigins = [
     'https://numor.app',
     'https://www.numor.app',
+    'http://localhost:3000',
+    'https://id-preview--15482be5-6c09-4a46-b5df-d1f1337d4fbb.lovable.app'
 ];
 app.use(cors(
     {
