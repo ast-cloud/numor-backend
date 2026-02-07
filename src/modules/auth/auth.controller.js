@@ -7,8 +7,8 @@ async function register(req, res) {
     res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      domain: process.env.NODE_ENV === "production" ? ".numor.app" : "localhost",
+      sameSite: "none",
+      // domain: process.env.NODE_ENV === "production" ? ".numor.app" : "localhost",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -35,8 +35,8 @@ async function login(req, res) {
     res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax", // or "lax"
-      domain: process.env.NODE_ENV === "production" ? ".numor.app" : "localhost",
+      sameSite: "none", // or "lax"
+      // domain: process.env.NODE_ENV === "production" ? ".numor.app" : "localhost",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -60,8 +60,8 @@ async function logout(req, res) {
   res.clearCookie("access_token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    domain: ".numor.app",
+    sameSite: "none",
+    // domain: ".numor.app",
   });
   res.json({
     success: true,
@@ -77,8 +77,8 @@ async function googleLogin(req, res, next) {
     res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      domain: process.env.NODE_ENV === "production" ? ".numor.app" : "localhost",
+      sameSite: "none",
+      // domain: process.env.NODE_ENV === "production" ? ".numor.app" : "localhost",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
     res.json({
