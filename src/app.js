@@ -6,11 +6,11 @@ const morgan = require('morgan');
 
 const routes = require('../src/routes/index');
 const errorMiddleware = require('./middlewares/error.middleware');
-const cookieParser = require("cookie-parser");
+// const cookieParser = require("cookie-parser");
 
 const app = express();
 app.use(helmet());
-app.use(cookieParser());
+// app.use(cookieParser());
 app.use((req, res, next) => {
   console.log('Request URL:', req.originalUrl);
   res.header("Access-Control-Allow-Credentials", "true");
@@ -21,7 +21,8 @@ allowedOrigins = [
     'https://numor.app',
     'https://www.numor.app',
     'http://localhost:3000',
-    'https://id-preview--15482be5-6c09-4a46-b5df-d1f1337d4fbb.lovable.app'
+    'https://id-preview--15482be5-6c09-4a46-b5df-d1f1337d4fbb.lovable.app',
+    'https://preview--numor.lovable.app'
 ];
 app.use(cors(
     {
