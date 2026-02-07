@@ -8,7 +8,7 @@ async function register(req, res) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "none",
-      // domain: process.env.NODE_ENV === "production" ? ".numor.app" : "localhost",
+      domain: process.env.NODE_ENV === "production" ? ".numor.app" : "localhost",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
