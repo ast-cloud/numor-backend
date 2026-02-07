@@ -30,6 +30,7 @@ async function previewInvoiceOCR(filePath) {
 async function saveInvoiceFromPreview(user, payload) {
     return await prisma.$transaction(async (tx) => {
 
+
         const subtotal = payload.subtotal ?? 0;
         const discount = payload.discount ?? 0;
         const taxAmount = payload.taxAmount ?? 0;
@@ -44,13 +45,34 @@ async function saveInvoiceFromPreview(user, payload) {
 
         const exchangeRate = payload.exchangeRate ?? 1;
         const baseAmount = totalAmount * exchangeRate;
+        const client =
+            payload.buyer
+                ? await tx.client.create({
+                    data: {
+                        userId: BigInt(user.userId),
+                        name: payload.buyer.name,
+                        email: payload.buyer.email,
+                        phone: payload.buyer.phone,
+                        streetAddress: payload.buyer.address?.street,
+                        city: payload.buyer.address?.city,
+                        state: payload.buyer.address?.state,
+                        zipCode: payload.buyer.address?.zipCode,
+                        country: payload.buyer.address?.country,
+                        companyType: payload.buyer.companyType,
+                        gstin: payload.buyer.gstin,
+                        taxId: payload.buyer.taxId,
+                        taxSystem: payload.buyer.taxSystem ?? "NONE",
+                        isActive: true,
+                    },
+                })
+                : null;
 
         // 1️⃣ Create invoice
         const invoice = await tx.invoiceBill.create({
             data: {
                 orgId: BigInt(user.orgId),
                 customerId: BigInt(user.userId),
-                clientId: payload.clientId ? BigInt(payload.clientId) : null,
+                clientId: client ? client.id : null,
 
                 invoiceNumber:
                     payload.invoiceNumber ??
