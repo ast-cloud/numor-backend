@@ -21,7 +21,24 @@ const { success } = require('zod');
 // }
 
 function authMiddleware(req, res, next) {
-    const token = req.cookies?.access_token;
+    // const token = req.cookies?.access_token;
+
+    
+    // 1. Get the Authorization header (usually looks like "Bearer eyJhbG...")
+    const authHeader = req.headers.authorization;
+
+    // 2. Check if header exists and starts with "Bearer "
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ 
+            success: false, 
+            message: "Unauthorized: No token provided" 
+        });
+    }
+
+    // 3. Extract the actual token string
+    const token = authHeader.split(" ")[1];
+
+
     if (!token){
         return res.status(401).json({success: false, message: "Unauthorized"});
     }
