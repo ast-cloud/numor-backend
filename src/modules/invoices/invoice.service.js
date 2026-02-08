@@ -2,10 +2,36 @@ const prisma = require('../../config/database');
 const ocrService = require('../../services/ocr.service');
 const aiService = require('../ai/ai.service');
 const invoiceQueue = require('../../queues/invoice.queue');
+const qstashService = require("../../queues/invoice.qstash");
 
 
-async function previewInvoiceAI(filePath) {
-    const parsed = await aiService.parseInvoiceFromFile(filePath);
+function isExcelFile(mimetype, filename) {
+    if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        mimetype === "application/vnd.ms-excel") {
+        return true;
+    }
+    if (typeof filename === 'string' &&
+        (filename.endsWith('.xlsx') || filename.endsWith('.xls'))) {
+        return true;
+    }
+    return false;
+}
+
+
+async function previewInvoiceAI(file) {
+    const { path, mimeType, originalName } = file;
+    //Excel 
+    if (isExcelFile(mimeType, originalName)) {
+        const parsed = await aiService.parseInvoiceFromExcel(path);
+        return {
+            source: "gemini-vision-excel",
+            parsedData: parsed,
+            confidence: parsed.confidence || null,
+        };
+    }
+
+    //Pdf and Image
+    const parsed = await aiService.parseInvoiceFromFile(path);
 
     return {
         source: "gemini-vision",
@@ -397,9 +423,16 @@ async function confirmAndCreateInvoice(user, data) {
         },
         include: { items: true },
     });
+    console.log('Created invoice with ID:', invoice.id);
 
     // 3️⃣ Queue PDF generation
-    await invoiceQueue.enqueue({ invoiceId: invoice.id });
+    // await invoiceQueue.enqueue({ invoiceId: invoice.id });
+
+    // 3️⃣ Trigger PDF generation (async, reliable)
+    await qstashService.publishInvoicePdfJob({
+        invoiceId: invoice.id,
+    });
+
 
     return invoice;
 }

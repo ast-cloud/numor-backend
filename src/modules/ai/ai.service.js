@@ -3,8 +3,11 @@ const invoicePrompt = require('./prompts/invoice.prompt');
 const expensePromt = require('./prompts/expense.prompt');
 const fs = require("fs");
 const path = require("path");
+const XLSX = require("xlsx");
+const buildExcelInvoicePrompt = require('./prompts/invoiceExcel.promt');
+const invoicePromptVision = require('./prompts/invoice.prompt');
 
-const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
+// const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
 function normalizeInvoice(data) {
   if (!data || !Array.isArray(data.items) || data.items.length === 0) {
     throw new Error("Invalid invoice data from AI");
@@ -175,94 +178,35 @@ function extractJson(text) {
   return JSON.parse(match[0]);
 }
 
-async function parseInvoiceFromFile(filePath) {
-  const prompt = `
-You are an expert invoice parser.
-Analyze the invoice image and return ONLY valid JSON.
-Do not include explanations or markdown.
+async function parseInvoiceFromExcel(filePath) {
+  // 1. Excel → JSON rows
+  const workbook = XLSX.readFile(filePath);
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-Rules:
-- Dates must be in YYYY-MM-DD
-- Numbers must be decimals (no currency symbols)
-- If a field is missing, return null
-- Ensure totals are mathematically consistent
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    defval: null,
+    raw: false,
+  });
 
-JSON format:
-{
-  "invoiceNumber": string,
-  "invoiceType": "TAX" | "PROFORMA" | "COMMERCIAL",
-  "issueDate": "YYYY-MM-DD",
-  "dueDate": "YYYY-MM-DD",
-  "paymentTerms": string | null,
+  // Safety limit (important)
+  const trimmedRows = rows.slice(0, 200);
 
-  "currency": string,
-  "subtotal": number,
-  "discount": number,
-  "taxAmount": number,
-  "shippingCost": number,
-  "totalAmount": number,
+  // 2. JSON → AI (TEXT)
+  const prompt = buildExcelInvoicePrompt(trimmedRows);
+  console.log("Excel Invoice Prompt:", prompt);
 
-  "seller": {
-    "name": string,
-    "email": string | null,
-    "phone": string | null,
-    "taxId": string | null,
-    "street": string | null,
-    "city": string | null,
-    "state": string | null,
-    "zipCode": string | null,
-    "country": string | null
-  },
+  const raw = await callGeminiText(prompt);
+  console.log("Gemini Raw:", raw);
 
-  "buyer": {
-    "name": string | null,
-    "email": string | null,
-    "phone": string | null,
-    "address": {
-      "street": string | null,
-      "city": string | null,
-      "state": string | null,
-      "zipCode": string | null,
-      "country": string | null
-    },
-    "companyType": string | null,
-    "gstin": string | null,
-    "taxId": string | null,
-    "taxSystem": "GST" | "VAT" | "SALES" | "NONE"
-  },
-
-  "tax": {
-    "taxType": "GST" | "VAT" | "SALES" | "NONE",
-    "placeOfSupply": string | null,
-    "reverseCharge": boolean,
-    "taxSummary": {
-      "<TAX_NAME>": {
-        "rate": number,
-        "amount": number
-      }
-    } | null
-    Example:
-    "taxSummary": {
-      "CGST": { "rate": 9, "amount": 100.00 },
-      "SGST": { "rate": 18, "amount": 200.00 }
-    } | null
-  },
-
-  "items": [
-    {
-      "name": string,
-      "description": string | null,
-      "quantity": number,
-      "unitPrice": number,
-      "taxRate": number,
-      "total": number
-    }
-  ]
+  return normalizeInvoice(raw);
 }
-`;
+
+async function parseInvoiceFromFile(filePath) {
+  const prompt = invoicePromptVision;
+  console.log("Excel Invoice Prompt:", prompt);
 
   try {
-    const raw = await callGemini(prompt, filePath);
+    const raw = await callGeminiVision(prompt, filePath);
     return normalizeInvoice(raw);
   } catch (err) {
     console.error("❌ GEMINI INVOICE ERROR:\n", err);
@@ -307,7 +251,7 @@ If any required field is missing, return null.
 `;
 
   try {
-    const raw = await callGemini(prompt, filePath);
+    const raw = await callGeminiVision(prompt, filePath);
     return normalizeExpense(raw);
   } catch (err) {
     console.error("❌ GEMINI EXPENSE ERROR:", err);
@@ -316,14 +260,14 @@ If any required field is missing, return null.
 }
 
 
-async function callGemini(prompt, filePath) {
+async function callGeminiVision(prompt, filePath) {
   const mimeType = getMimeType(filePath);
   const fileBase64 = fs.readFileSync(filePath, {
     encoding: "base64",
   });
 
   const response = await fetch(
-    `${GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
+    `${process.env.GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -340,6 +284,35 @@ async function callGemini(prompt, filePath) {
                 },
               },
             ],
+          },
+        ],
+      }),
+    }
+  );
+
+  const data = await response.json();
+
+  const text =
+    data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!text) {
+    throw new Error("Gemini returned empty response");
+  }
+
+  return extractJson(text);
+}
+
+async function callGeminiText(prompt) {
+  const response = await fetch(
+    `${process.env.GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
           },
         ],
       }),
@@ -375,4 +348,4 @@ function getMimeType(filePath) {
   }
 }
 
-module.exports = { parseInvoiceFromFile, parseExpenseFromFile };
+module.exports = { parseInvoiceFromFile, parseExpenseFromFile, parseInvoiceFromExcel };

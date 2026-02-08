@@ -9,24 +9,52 @@ const redis = new Redis({
 });
 
 
+// async function processQueue() {
+//     try {
+//         console.log('Checking for PDF jobs in processqueue of worker...');
+//         const job = await redis.rpop('numor-invoice-pdf-queue');
+//         if (job) {
+//             console.log('📤 Dequeued PDF job:', job);
+//         }
+//         if (!job) {
+//             // No job → wait 1s, then retry
+//             console.log('No PDF jobs found, waiting...');
+//             return setTimeout(processQueue, 1000);
+//         }
+//         const { invoiceId } = job;
+//         await handleInvoice(invoiceId);
+
+//     } catch (err) {
+//         console.error('Worker error:', err);
+//     }
+
+//     setImmediate(processQueue);
+// }
 async function processQueue() {
-    try {
-        const job = await redis.rpop('numor-invoice-pdf-queue');
-        if (job) {
-            console.log('📤 Dequeued PDF job:', job);
-        }
-        if (!job) {
-            // No job → wait 1s, then retry
-            return setTimeout(processQueue, 1000);
-        }
-        const { invoiceId } = job;
-        await handleInvoice(invoiceId);
+    console.log('📄 PDF Worker started');
 
-    } catch (err) {
-        console.error('Worker error:', err);
+    let idleDelay = 1000; // start with 1s
+
+    while (true) {
+        try {
+            const job = await redis.rpop('numor-invoice-pdf-queue');
+
+            if (!job) {
+                await new Promise(r => setTimeout(r, idleDelay));
+                idleDelay = Math.min(idleDelay * 2, 15000); // cap at 15s
+                continue;
+            }
+
+            idleDelay = 1000; // reset on success
+            console.log('📤 Dequeued job:', job);
+
+            await handleInvoice(job.invoiceId);
+
+        } catch (err) {
+            console.error('Worker error:', err);
+            await new Promise(r => setTimeout(r, 2000));
+        }
     }
-
-    setImmediate(processQueue);
 }
 processQueue();
 

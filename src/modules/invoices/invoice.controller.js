@@ -4,8 +4,8 @@ const invoiceService = require('./invoice.service');
 
 
 exports.previewInvoice = async function (req, res) {
-  const filePath = req.file.path;
-  const result = await invoiceService.previewInvoiceAI(filePath);
+  // const filePath = req.file.path;
+  const result = await invoiceService.previewInvoiceAI(req.file);
 
   res.json({
     success: true,

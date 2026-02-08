@@ -17,6 +17,7 @@ const caReview = require('../modules/ca-connect/ca-review/caReview.routes');
 // const caAdmin = require('../modules/ca-connect/admin/caAdmin.routes');
 const caSlots = require('../modules/ca-connect/ca-slots/caSlot.routes');
 const chatBot = require("../modules/ai/chatbot/chat.route");
+const qstashRoute = require("../workers/qstash.route");
 
 // Health check
 router.get('/health', (req, res) => {
@@ -40,5 +41,6 @@ router.use('/ca-reviews', caReview);
 // router.use('/ca/admin', caAdmin);
 router.use('/ca-slots', caSlots);
 router.use('/chatbot', chatBot);
+router.use('/qstash', qstashRoute);
 
 module.exports = router;
