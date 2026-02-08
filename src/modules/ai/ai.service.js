@@ -5,7 +5,10 @@ const fs = require("fs");
 const path = require("path");
 const XLSX = require("xlsx");
 const buildExcelInvoicePrompt = require('./prompts/invoiceExcel.promt');
+const buildExcelExpensePrompt = require('./prompts/expenseExcel.prompt');
 const invoicePromptVision = require('./prompts/invoice.prompt');
+const expensePromptVision = require('./prompts/expense.prompt');
+const csv = require("csv-parser");
 
 // const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
 function normalizeInvoice(data) {
@@ -28,7 +31,7 @@ function normalizeInvoice(data) {
 
   const effectiveTax =
     subtotal > 0 ? Number((taxAmount / subtotal).toFixed(4)) : 0;
-  const taxSummary = typeof data.tax?.taxSummary === "object"? data.tax.taxSummary : null;
+  const taxSummary = typeof data.tax?.taxSummary === "object" ? data.tax.taxSummary : null;
   return {
     // 🧾 Core invoice
     invoiceNumber: data.invoiceNumber ?? null,
@@ -54,40 +57,40 @@ function normalizeInvoice(data) {
     // 🧾 Seller (nested — IMPORTANT)
     seller: data.seller
       ? {
-          name: data.seller.name ?? null,
-          email: data.seller.email ?? null,
-          phone: data.seller.phone ?? null,
-          streetAddress: data.seller.street ?? null,
-          city: data.seller.city ?? null,
-          state: data.seller.state ?? null,
-          zipCode: data.seller.zipCode ?? null,
-          country: data.seller.country ?? null,
-          taxId: data.seller.taxId ?? null,
-          iecCode: data.seller.iecCode ?? null,
-          lutFiled: Boolean(data.seller.lutFiled),
-        }
+        name: data.seller.name ?? null,
+        email: data.seller.email ?? null,
+        phone: data.seller.phone ?? null,
+        streetAddress: data.seller.street ?? null,
+        city: data.seller.city ?? null,
+        state: data.seller.state ?? null,
+        zipCode: data.seller.zipCode ?? null,
+        country: data.seller.country ?? null,
+        taxId: data.seller.taxId ?? null,
+        iecCode: data.seller.iecCode ?? null,
+        lutFiled: Boolean(data.seller.lutFiled),
+      }
       : null,
 
-      buyer: data.buyer
+    buyer: data.buyer
       ? {
-          name: data.buyer.name ?? null,
-          email: data.buyer.email ?? null,
-          phone: data.buyer.phone ?? null,
+        name: data.buyer.name ?? null,
+        email: data.buyer.email ?? null,
+        phone: data.buyer.phone ?? null,
 
-          address: {
-            street: data.buyer.address?.street ?? null,
-            city: data.buyer.address?.city ?? null,
-            state: data.buyer.address?.state ?? null,
-            zipCode: data.buyer.address?.zipCode ?? null,
-            country: data.buyer.address?.country ?? null,
-          },
+        address: {
+          street: data.buyer.address?.street ?? null,
+          city: data.buyer.address?.city ?? null,
+          state: data.buyer.address?.state ?? null,
+          zipCode: data.buyer.address?.zipCode ?? null,
+          country: data.buyer.address?.country ?? null,
+        },
 
-          companyType: data.buyer.companyType ?? null,
-          gstin: data.buyer.gstin ?? null,
-          taxId: data.buyer.taxId ?? null,
-          taxSystem: data.buyer.taxSystem ?? "NONE",
-          isActive: true,
-        }
+        companyType: data.buyer.companyType ?? null,
+        gstin: data.buyer.gstin ?? null,
+        taxId: data.buyer.taxId ?? null,
+        taxSystem: data.buyer.taxSystem ?? "NONE",
+        isActive: true,
+      }
       : null,
 
     // 🧮 Tax & compliance
@@ -101,9 +104,9 @@ function normalizeInvoice(data) {
     // 🚚 Shipping / trade
     shipTo: data.shipTo
       ? {
-          name: data.shipTo.name ?? null,
-          address: data.shipTo.address ?? null,
-        }
+        name: data.shipTo.name ?? null,
+        address: data.shipTo.address ?? null,
+      }
       : null,
 
     countryOfOrigin: data.countryOfOrigin ?? null,
@@ -137,17 +140,24 @@ function normalizeExpense(data) {
     throw new Error("Invalid expense data from AI");
   }
 
-  // Convert DD/MM/YYYY → Date
-  const expenseDate = data.expenseDate
-    ? parseDDMMYYYY(data.expenseDate)
-    : new Date();
+  // Date normalization (safe fallback)
+  const parsedDate = data.expenseDate ?? null
+  const expenseDate = parsedDate || new Date();
 
-  const items = (data.items || []).map((item) => ({
-    itemName: item.name,
-    quantity: Number(item.quantity || 1),
-    unitPrice: Number(item.unitPrice || 0),
-    totalPrice: Number(item.total || 0)
-  }));
+  const items = Array.isArray(data.items)
+    ? data.items.map((item) => {
+      const quantity = Number(item.quantity || 1);
+      const unitPrice = Number(item.unitPrice || 0);
+
+      return {
+        itemName: item.name || "Unknown item",
+        quantity,
+        unitPrice,
+        totalPrice:
+          Number(item.total) || Number((quantity * unitPrice).toFixed(2)),
+      };
+    })
+    : [];
 
   const calculatedTotal =
     items.length > 0
@@ -155,17 +165,29 @@ function normalizeExpense(data) {
       : Number(data.totalAmount);
 
   return {
-    merchant: data.merchant,
+    merchant: data.merchant || "Unknown",
     expenseDate,
     totalAmount: Number(data.totalAmount ?? calculatedTotal),
     category: mapExpenseCategory(data.category),
-    paymentMethod: data.paymentMethod,
+    paymentMethod: data.paymentMethod || null,
     ocrExtracted: true,
-    ocrConfidence: data.confidence ? Number(data.confidence) : null,
-    items
+    ocrConfidence:
+      data.confidence !== undefined ? Number(data.confidence) : null,
+    items,
   };
 }
 
+function csvToJson(filePath) {
+  return new Promise((resolve, reject) => {
+    const rows = [];
+
+    fs.createReadStream(filePath)
+      .pipe(csv({ skipLines: 0, trim: true }))
+      .on("data", (row) => rows.push(row))
+      .on("end", () => resolve(rows))
+      .on("error", reject);
+  });
+}
 
 function extractJson(text) {
   // Try to extract JSON object from AI response
@@ -193,17 +215,37 @@ async function parseInvoiceFromExcel(filePath) {
 
   // 2. JSON → AI (TEXT)
   const prompt = buildExcelInvoicePrompt(trimmedRows);
-  console.log("Excel Invoice Prompt:", prompt);
+  // console.log("Excel Invoice Prompt:", prompt);
 
   const raw = await callGeminiText(prompt);
-  console.log("Gemini Raw:", raw);
+  // console.log("Gemini Raw:", raw);
 
   return normalizeInvoice(raw);
 }
 
+async function parseInvoiceFromCsv(filePath) {
+  // 1. CSV → JSON rows
+  const rows = await csvToJson(filePath);
+
+  // Safety limit (same as Excel)
+  const trimmedRows = rows.slice(0, 200);
+
+  // 2. JSON → AI (TEXT)
+  const prompt = buildExcelInvoicePrompt(trimmedRows);
+  // 👆 Reuse same prompt — CSV & Excel are both tabular
+
+  // console.log("CSV Invoice Prompt:", prompt);
+
+  const raw = await callGeminiText(prompt);
+  // console.log("Gemini Raw:", raw);
+
+  return normalizeInvoice(raw);
+}
+
+
 async function parseInvoiceFromFile(filePath) {
   const prompt = invoicePromptVision;
-  console.log("Excel Invoice Prompt:", prompt);
+  // console.log("Excel Invoice Prompt:", prompt);
 
   try {
     const raw = await callGeminiVision(prompt, filePath);
@@ -214,41 +256,50 @@ async function parseInvoiceFromFile(filePath) {
   }
 }
 
-async function parseExpenseFromFile(filePath) {
-  const prompt = `
-You are an expert expense receipt parser.
+async function parseExpenseFromExcel(filePath) {
+  // 1. Excel → JSON rows
+  const workbook = XLSX.readFile(filePath);
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-Extract data from the receipt image and return ONLY valid JSON.
-Do not include markdown, comments, or explanations.
+  const rows = XLSX.utils.sheet_to_json(sheet, {
+    defval: null,
+    raw: false,
+  });
 
-Rules:
-- Use DOUBLE QUOTES for all keys and string values
-- Numbers must be numbers (no currency symbols)
-- If a value is unknown, use null
-- expenseDate must be in DD/MM/YYYY format
-- category must be one of:
-  "Food & Dining", "Transportation", "Utilities",
-  "Office Supplies", "Travel", "Entertainment", "Other"
+  // Safety limit (important)
+  const trimmedRows = rows.slice(0, 200);
 
-JSON format:
-{
-  "merchant": string | null,
-  "expenseDate": string | null,
-  "totalAmount": number,
-  "category": string | null,
-  "paymentMethod": string | null,
-  "items": [
-    {
-      "name": string | null,
-      "quantity": number,
-      "unitPrice": number,
-      "total": number
-    }
-  ],
-  "confidence": number | null
+  // 2. JSON → AI (TEXT)
+  const prompt = buildExcelExpensePrompt(trimmedRows);
+  // console.log("Excel Expense Prompt:", prompt);
+
+  const raw = await callGeminiText(prompt);
+  // console.log("Gemini Raw:", raw);
+
+  return normalizeExpense(raw);
 }
-If any required field is missing, return null.
-`;
+
+async function parseExpenseFromCsv(filePath) {
+  // 1. CSV → JSON rows
+  const rows = await csvToJson(filePath);
+
+  // Safety limit (same as Excel)
+  const trimmedRows = rows.slice(0, 200);
+
+  // 2. JSON → AI (TEXT)
+  const prompt = buildExcelExpensePrompt(trimmedRows);
+  // 👆 Reuse same prompt — CSV & Excel are both tabular
+
+  // console.log("CSV Expense Prompt:", prompt);
+
+  const raw = await callGeminiText(prompt);
+  // console.log("Gemini Raw:", raw);
+
+  return normalizeExpense(raw);
+}
+
+async function parseExpenseFromFile(filePath) {
+  const prompt = expensePromptVision;
 
   try {
     const raw = await callGeminiVision(prompt, filePath);
@@ -258,7 +309,6 @@ If any required field is missing, return null.
     throw err;
   }
 }
-
 
 async function callGeminiVision(prompt, filePath) {
   const mimeType = getMimeType(filePath);
@@ -348,4 +398,31 @@ function getMimeType(filePath) {
   }
 }
 
-module.exports = { parseInvoiceFromFile, parseExpenseFromFile, parseInvoiceFromExcel };
+const ALLOWED_EXPENSE_CATEGORIES = new Set([
+  "Food & Dining",
+  "Transportation",
+  "Travel",
+  "Accommodation",
+  "Utilities",
+  "Office Supplies",
+  "Software & Subscriptions",
+  "Marketing & Advertising",
+  "Professional Services",
+  "Rent",
+  "Maintenance & Repairs",
+  "Entertainment",
+  "Insurance",
+  "Taxes & Government Fees",
+  "Bank Charges",
+  "Training & Education",
+  "Other"
+]);
+
+function mapExpenseCategory(category) {
+  return ALLOWED_EXPENSE_CATEGORIES.has(category)
+    ? category
+    : "Other";
+}
+
+
+module.exports = { parseInvoiceFromFile, parseExpenseFromFile, parseInvoiceFromExcel, parseInvoiceFromCsv, parseExpenseFromExcel, parseExpenseFromCsv };

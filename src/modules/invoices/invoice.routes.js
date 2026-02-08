@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const auth = require('../../middlewares/auth.middleware');
-const upload = require('../../config/ocr');
+const upload = require('../../config/upload');
 const controller = require('./invoice.controller');
 
 // router.post(

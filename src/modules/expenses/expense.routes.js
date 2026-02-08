@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const auth = require('../../middlewares/auth.middleware');
-const upload = require('../../config/ocr');
+const upload = require('../../config/upload');
 const controller = require('./expense.controller');
 
 // router.post(
@@ -10,14 +10,14 @@ const controller = require('./expense.controller');
 //   controller.previewOCR
 // );
 router.post(
-  '/uploadExpenseForAI',
+  '/parseExpense',
   auth,
   upload.single('file'),
-  controller.previewExpense
+  controller.parseExpense
 );
 
 router.post(
-  '/saveExpense',
+  '/confirmAndSaveExpense',
   auth,
   controller.confirmExpense
 )

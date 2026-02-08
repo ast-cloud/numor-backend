@@ -2,26 +2,61 @@ const prisma = require('../../config/database');
 const ocrService = require('../../services/ocr.service');
 const aiService = require('../ai/ai.service');
 
+function isExcelFile(mimetype, filename) {
+    if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        mimetype === "application/vnd.ms-excel") {
+        return true;
+    }
+    if (typeof filename === 'string' &&
+        (filename.endsWith('.xlsx') || filename.endsWith('.xls'))) {
+        return true;
+    }
+    return false;
+}
 
-exports.previewExpenseAI = async function (filePath) {
-  const parsed = await aiService.parseExpenseFromFile(filePath);
+function isCsvFile(mimetype, filename) {
+    return (
+        mimetype === 'text/csv' ||
+        mimetype === 'application/csv' ||
+        (typeof filename === 'string' && filename.endsWith('.csv'))
+    );
+}
 
+exports.previewExpenseAI = async function (file) {
+const { path, mimetype, originalname } = file;
+    //Excel 
+    if (isExcelFile(mimetype, originalname)) {
+        const parsed = await aiService.parseExpenseFromExcel(path);
+        return {
+            source: "gemini-vision-excel",
+            parsedData: parsed,
+            confidence: parsed.confidence || null,
+        };
+    }
+
+    if (isCsvFile(mimetype, originalname)) {
+        const parsed = await aiService.parseExpenseFromCsv(path);
+        return {
+            source: "gemini-vision-csv",
+            parsedData: parsed,
+            confidence: parsed.confidence || null,
+        };
+    }
+
+
+    //Pdf and Image
+    const parsed = await aiService.parseExpenseFromFile(path);
+
+    return {
+        source: "gemini-vision",
+        parsedData: parsed,
+        confidence: parsed.confidence || null,
+    };
   return {
     source: "gemini-vision",
     parsedData: parsed,
     confidence: parsed.confidence || null,
   };
-}
-exports.previewExpenseOCR = async function (filePath) {
-    const rawText = await ocrService.extractText(filePath);
-    const parsed = await aiService.parseExpense(rawText);
-    // console.log('--- OCR RAW TEXT ---\n', rawText);
-    // console.log('Parsed Expense Data:', parsed);
-    return {
-        source: 'ocr+ai',
-        parsedData: parsed,
-        confidence: parsed.confidence || null, // optional
-    };
 }
 
 exports.saveExpenseFromPreview = async (user, payload) => {
