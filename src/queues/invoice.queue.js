@@ -5,6 +5,6 @@ const redis = new Redis({
 });
 
 exports.enqueue = async (payload) => {
-    console.log('📥 Enqueuing PDF job:', payload);
+  console.log('📥 Enqueuing PDF job:', payload);
   await redis.lpush('numor-invoice-pdf-queue', JSON.stringify(payload));
 };

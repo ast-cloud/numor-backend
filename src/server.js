@@ -13,24 +13,24 @@ app.listen(PORT, () => {
 
 
 // Start PDF worker (ONLY ON MAIN INSTANCE)
-if (process.env.ENABLE_PDF_WORKER === 'true') {
-  const worker = new Worker(
-    require.resolve('./workers/invoice-pdf.worker.js'),
-      { type: 'commonjs' }
-  );
+// if (process.env.ENABLE_PDF_WORKER === 'true') {
+//   const worker = new Worker(
+//     require.resolve('./workers/invoice-pdf.worker.js'),
+//       { type: 'commonjs' }
+//   );
 
-  worker.on('online', () => {
-    console.log('Invoice PDF worker started');
-  });
+//   worker.on('online', () => {
+//     console.log('Invoice PDF worker started');
+//   });
 
-  worker.on('error', (err) => {
-    console.error('PDF Worker error:', err);
-  });
+//   worker.on('error', (err) => {
+//     console.error('PDF Worker error:', err);
+//   });
 
-  worker.on('exit', (code) => {
-    console.log('PDF Worker exited with code:', code);
-  });
-}
+//   worker.on('exit', (code) => {
+//     console.log('PDF Worker exited with code:', code);
+//   });
+// }
 
 (async () => {
   await initCheckpointer();
