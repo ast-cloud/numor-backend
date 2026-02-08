@@ -1,0 +1,4 @@
+InvoiceNumber,InvoiceDate,DueDate,CustomerName,ItemDescription,Quantity,UnitPrice,TotalAmount,TaxRate
+INV-1001,25-10-2023,25-11-2023,Acme Corp,Web Design Services,1,1500,1500,0.05
+INV-1001,25-10-2023,25-11-2023,Acme Corp,Hosting Fee,1,200,200,0.05
+INV-1002,26-10-2023,26-11-2023,Acme Corp,Consulting Hours,10,150,1500,0

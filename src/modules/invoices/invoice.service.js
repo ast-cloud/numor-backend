@@ -4,7 +4,6 @@ const aiService = require('../ai/ai.service');
 const invoiceQueue = require('../../queues/invoice.queue');
 const qstashService = require("../../queues/invoice.qstash");
 
-
 function isExcelFile(mimetype, filename) {
     if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
         mimetype === "application/vnd.ms-excel") {
@@ -17,11 +16,18 @@ function isExcelFile(mimetype, filename) {
     return false;
 }
 
+function isCsvFile(mimetype, filename) {
+    return (
+        mimetype === 'text/csv' ||
+        mimetype === 'application/csv' ||
+        (typeof filename === 'string' && filename.endsWith('.csv'))
+    );
+}
 
 async function previewInvoiceAI(file) {
-    const { path, mimeType, originalName } = file;
+    const { path, mimetype, originalname } = file;
     //Excel 
-    if (isExcelFile(mimeType, originalName)) {
+    if (isExcelFile(mimetype, originalname)) {
         const parsed = await aiService.parseInvoiceFromExcel(path);
         return {
             source: "gemini-vision-excel",
@@ -30,6 +36,16 @@ async function previewInvoiceAI(file) {
         };
     }
 
+    if (isCsvFile(mimetype, originalname)) {
+        const parsed = await aiService.parseInvoiceFromCsv(path);
+        return {
+            source: "gemini-vision-csv",
+            parsedData: parsed,
+            confidence: parsed.confidence || null,
+        };
+    }
+
+
     //Pdf and Image
     const parsed = await aiService.parseInvoiceFromFile(path);
 
@@ -37,18 +53,6 @@ async function previewInvoiceAI(file) {
         source: "gemini-vision",
         parsedData: parsed,
         confidence: parsed.confidence || null,
-    };
-}
-
-async function previewInvoiceOCR(filePath) {
-    const rawText = await ocrService.extractText(filePath);
-    const parsed = await aiService.parseInvoice(rawText);
-    console.log('--- OCR RAW TEXT ---\n', rawText);
-    console.log('Parsed Invoice Data:', parsed);
-    return {
-        source: 'ocr+ai',
-        parsedData: parsed,
-        confidence: parsed.confidence || null, // optional
     };
 }
 
@@ -221,76 +225,6 @@ async function listInvoiceProducts(invoiceId, page, limit) {
         skip: offset,
     })
 }
-// async function saveConfirmedInvoice(invoiceId, parsed) {
-//     console.log('Saving confirmed invoice data:', parsed);
-
-//     if (!invoiceId) {
-//         throw new Error('Invoice ID is required');
-//     }
-
-//     if (!parsed?.invoiceNumber) {
-//         throw new Error('Invoice number is required to confirm invoice');
-//     }
-
-//     return await prisma.$transaction(async (tx) => {
-
-//         // 1️⃣ Ensure invoice exists & is in DRAFT state
-//         const existingInvoice = await tx.invoiceBill.findUnique({
-//             where: { id: BigInt(invoiceId) },
-//             select: { id: true, status: true },
-//         });
-
-//         if (!existingInvoice) {
-//             throw new Error('Invoice not found');
-//         }
-
-//         if (existingInvoice.status !== 'DRAFT') {
-//             throw new Error(
-//                 `Invoice cannot be confirmed. Current status: ${existingInvoice.status}`
-//             );
-//         }
-
-//         // 2️⃣ Update invoice
-//         const invoice = await tx.invoiceBill.update({
-//             where: { id: BigInt(invoiceId) },
-//             data: {
-//                 invoiceNumber: parsed.invoiceNumber,
-//                 issueDate: parsed.invoiceDate
-//                     ? new Date(parsed.invoiceDate)
-//                     : new Date(),
-//                 dueDate: parsed.dueDate
-//                     ? new Date(parsed.dueDate)
-//                     : new Date(),
-//                 subtotal: parsed.subtotal ?? 0,
-//                 taxAmount: parsed.taxAmount ?? 0,
-//                 totalAmount: parsed.totalAmount,
-//                 status: 'CONFIRMED',
-//             },
-//         });
-
-//         // 3️⃣ Remove old items (safe inside transaction)
-//         await tx.invoiceBillItem.deleteMany({
-//             where: { invoiceId: invoice.id },
-//         });
-
-//         // 4️⃣ Insert new items
-//         if (Array.isArray(parsed.items)) {
-//             for (const item of parsed.items) {
-//                 await tx.invoiceBillItem.create({
-//                     data: {
-//                         invoiceId: invoice.id,
-//                         itemName: item.name,
-//                         quantity: item.quantity ?? 1,
-//                         unitPrice: item.unitPrice ?? 0,
-//                         totalPrice: item.total ?? 0,
-//                     },
-//                 });
-//             }
-//         }
-
-//         return invoice;
-//     });
-// }
 
 async function confirmAndCreateInvoice(user, data) {
     // 1️⃣ Calculate totals safely
@@ -509,7 +443,6 @@ async function pushPdfReady({ userId, invoiceId, signedUrl }) {
 
 
 module.exports = {
-    previewInvoiceOCR,
     saveInvoiceFromPreview,
     listInvoices,
     listInvoiceProducts,

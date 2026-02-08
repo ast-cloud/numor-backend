@@ -13,20 +13,6 @@ exports.previewInvoice = async function (req, res) {
   });
 }
 
-
-// exports.previewOCR = async function (req, res) {
-//   try {
-//     const filePath = req.file.path;
-
-//     const preview = await invoiceService.previewInvoiceOCR(filePath);
-
-//     res.json({ success: true, data: preview });
-//   } catch (err) {
-//     console.log('Error in previewOCR:', err);
-//     res.status(500).json({ success: false, message: err.message });
-//   }
-// }
-
 exports.confirmAndSaveInvoice = async function (req, res) {
   try {
     const payload = req.body;

@@ -73,13 +73,10 @@ exports.updateClient = async ({ user, clientId, data }) => {
 };
 
 exports.deleteClient = async ({ user, clientId }) => {
-    return prisma.client.updateMany({
+    return prisma.client.deleteMany({
         where: {
             id: BigInt(clientId),
             userId: BigInt(user.userId),
-        },
-        data: {
-            isActive: false,
-        },
+        }
     });
 };
