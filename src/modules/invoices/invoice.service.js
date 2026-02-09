@@ -129,7 +129,7 @@ async function saveInvoiceFromPreview(user, payload) {
                 paidAmount,
                 balanceDue,
 
-                status: "CONFIRMED",
+                status: payload.status ?? "UNPAID",
                 category: payload.category ?? "OTHER",
                 confirmedAt: new Date(),
 
@@ -293,7 +293,7 @@ async function confirmAndCreateInvoice(user, data) {
             effectiveTax,
 
             // 📌 Status
-            status: "SENT",
+            status: data.status ?? "UNPAID",
             confirmedAt: new Date(),
             sentAt: new Date(),
             pdfStatus: "QUEUED",
@@ -371,6 +371,149 @@ async function confirmAndCreateInvoice(user, data) {
     return invoice;
 }
 
+async function updateInvoice(user, id, data) {
+    try {
+        // 1️⃣ Calculate totals (same logic as create)
+        const subtotal = (data.items ?? []).reduce(
+            (s, i) => s + (i.quantity ?? 1) * (i.unitPrice ?? 0),
+            0
+        );
+
+        const taxAmount = (data.items ?? []).reduce(
+            (s, i) =>
+                s +
+                ((i.quantity ?? 1) *
+                    (i.unitPrice ?? 0) *
+                    (i.taxRate ?? 0)) /
+                    100,
+            0
+        );
+
+        const effectiveTax = subtotal
+            ? Number(((taxAmount / subtotal) * 100).toFixed(2))
+            : 0;
+
+        const discount = data.discount ?? 0;
+        const shippingCost = data.shippingCost ?? 0;
+
+        const totalAmount =
+            subtotal - discount + taxAmount + shippingCost;
+
+        const paidAmount = data.paidAmount ?? 0;
+        const balanceDue = totalAmount - paidAmount;
+
+        const exchangeRate = data.exchangeRate ?? 1;
+        const baseAmount = totalAmount * exchangeRate;
+
+        // 2️⃣ Update invoice with recalculated values
+        const invoice = await prisma.invoiceBill.update({
+            where: {
+                id: BigInt(id),
+                orgId: BigInt(user.orgId),
+            },
+            data: {
+                clientId: data.clientId
+                    ? BigInt(data.clientId)
+                    : undefined,
+
+                invoiceNumber: data.invoiceNumber,
+                invoiceType: data.invoiceType,
+
+                issueDate: data.issueDate
+                    ? new Date(data.issueDate)
+                    : undefined,
+                dueDate: data.dueDate
+                    ? new Date(data.dueDate)
+                    : undefined,
+                paymentTerms: data.paymentTerms,
+
+                currency: data.currency,
+                exchangeRate,
+                baseCurrency: data.baseCurrency,
+                baseAmount,
+
+                subtotal,
+                discount,
+                taxAmount,
+                shippingCost,
+                totalAmount,
+                paidAmount,
+                balanceDue,
+                effectiveTax,
+
+                status: data.status,
+                category: data.category,
+
+                // Seller snapshot
+                sellerName: data.seller?.name,
+                sellerEmail: data.seller?.email,
+                sellerPhone: data.seller?.phone,
+                sellerStreetAddress: data.seller?.streetAddress,
+                sellerCity: data.seller?.city,
+                sellerState: data.seller?.state,
+                sellerZipCode: data.seller?.zipCode,
+                sellerCountry: data.seller?.country,
+                sellerTaxId: data.seller?.taxId,
+                iecCode: data.seller?.iecCode,
+                lutFiled: data.seller?.lutFiled,
+
+                // Tax & compliance
+                taxType: data.taxType,
+                placeOfSupply: data.placeOfSupply,
+                reverseCharge: data.reverseCharge,
+                reverseReason: data.reverseReason,
+                sacCode: data.sacCode,
+                taxSummary: data.taxSummary,
+
+                // Shipping
+                shipToName: data.shipTo?.name,
+                shipToAddress: data.shipTo?.address,
+                countryOfOrigin: data.countryOfOrigin,
+                countryOfDestination: data.countryOfDestination,
+                incoterms: data.incoterms,
+
+                // Payment
+                bankDetails: data.bankDetails,
+                paymentLink: data.paymentLink,
+                bankAddress: data.bankAddress,
+
+                // Legal
+                jurisdiction: data.jurisdiction,
+                lateFeePolicy: data.lateFeePolicy,
+                notes: data.notes,
+
+                updatedAt: new Date(),
+
+                // 🔥 Replace items safely
+                items: data.items
+                    ? {
+                          deleteMany: {},
+                          create: data.items.map((item) => ({
+                              itemName: item.name,
+                              description: item.description,
+                              quantity: item.quantity ?? 1,
+                              unitPrice: item.unitPrice ?? 0,
+                              taxRate: item.taxRate ?? 0,
+                              totalPrice:
+                                  (item.quantity ?? 1) *
+                                      (item.unitPrice ?? 0) +
+                                  ((item.quantity ?? 1) *
+                                      (item.unitPrice ?? 0) *
+                                      (item.taxRate ?? 0)) /
+                                      100,
+                          })),
+                      }
+                    : undefined,
+            },
+            include: { items: true },
+        });
+
+        return invoice;
+    } catch (err) {
+        console.error("Update invoice failed:", err);
+        throw err;
+    }
+}
 
 
 async function getInvoice(user, id) {
@@ -451,6 +594,6 @@ module.exports = {
     getInvoice,
     getSignedPdfUrl,
     openStream,
-    pushPdfReady
-
+    pushPdfReady,
+    updateInvoice
 };

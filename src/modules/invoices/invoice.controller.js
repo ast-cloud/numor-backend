@@ -53,6 +53,27 @@ exports.listInvoiceProduct = async function (req, res) {
   }
 }
 
+exports.confirmAndUpdateInvoice = async function (req, res) {
+  try {
+    const payload = req.body;
+    const user = req.user; // from auth middleware
+    const id = BigInt(req.params.id);
+
+    const invoice = await invoiceService.updateInvoice(user, id, payload);
+
+    return res.json({
+      success: true,
+      data: invoice
+    });
+  } catch (err) {
+    console.error('Error in confirmAndUpdateInvoice:', err);
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
+
 exports.confirmAndCreateInvoice = async function (req, res) {
   try {
     const user = req.user;

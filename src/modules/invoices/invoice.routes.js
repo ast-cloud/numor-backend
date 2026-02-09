@@ -41,6 +41,12 @@ router.post(
   controller.confirmAndCreateInvoice
 )
 
+router.post(
+  '/:id/updateInvoice',
+  auth,
+  controller.confirmAndUpdateInvoice
+)
+
 router.get(
   '/:id', 
   auth, 
