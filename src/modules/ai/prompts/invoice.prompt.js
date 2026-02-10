@@ -75,6 +75,7 @@ JSON format:
       "name": string,
       "description": string | null,
       "quantity": number,
+      "unitType": string | null,
       "unitPrice": number,
       "taxRate": number,
       "total": number

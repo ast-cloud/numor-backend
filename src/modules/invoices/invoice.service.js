@@ -183,9 +183,10 @@ async function saveInvoiceFromPreview(user, payload) {
                         itemName: item.name,
                         description: item.description,
                         quantity: item.quantity ?? 1,
+                        unitType: item.unitType ?? "UNIT",
                         unitPrice: item.unitPrice ?? 0,
                         taxRate: item.taxRate ?? 0,
-                        totalPrice: item.total ?? 0,
+                        totalPrice: item.itemTotal ?? 0,
                     },
                 });
             }
@@ -312,14 +313,16 @@ async function confirmAndCreateInvoice(user, data) {
                         itemName: item.name,
                         description: item.description,
                         quantity: item.quantity ?? 1,
+                        unitType: item.unitType ?? "UNIT",
                         unitPrice: item.unitPrice ?? 0,
                         taxRate: item.taxRate ?? 0,
-                        totalPrice:
-                            (item.quantity ?? 1) *
-                            (item.unitPrice ?? 0) +
-                            ((item.quantity ?? 1) *
-                                (item.unitPrice ?? 0) *
-                                (item.taxRate ?? 0)) / 100,
+                        // totalPrice:
+                        //     (item.quantity ?? 1) *
+                        //     (item.unitPrice ?? 0) +
+                        //     ((item.quantity ?? 1) *
+                        //         (item.unitPrice ?? 0) *
+                        //         (item.taxRate ?? 0)) / 100,
+                        "totalPrice": item.itemTotal ?? 0,
                     })),
                 },
             },
@@ -423,15 +426,17 @@ async function confirmAndCreateInvoice(user, data) {
                     itemName: item.name,
                     description: item.description,
                     quantity: item.quantity ?? 1,
+                    unitType: item.unitType ?? "UNIT",
                     unitPrice: item.unitPrice ?? 0,
                     taxRate: item.taxRate ?? 0,
-                    totalPrice:
-                        (item.quantity ?? 1) *
-                        (item.unitPrice ?? 0) +
-                        ((item.quantity ?? 1) *
-                            (item.unitPrice ?? 0) *
-                            (item.taxRate ?? 0)) /
-                        100,
+                    // totalPrice:
+                    //     (item.quantity ?? 1) *
+                    //     (item.unitPrice ?? 0) +
+                    //     ((item.quantity ?? 1) *
+                    //         (item.unitPrice ?? 0) *
+                    //         (item.taxRate ?? 0)) /
+                    //     100,
+                    "totalPrice": item.itemTotal ?? 0,
                 })),
             },
         },
@@ -576,15 +581,18 @@ async function updateInvoice(user, id, data) {
                             itemName: item.name,
                             description: item.description,
                             quantity: item.quantity ?? 1,
+                            unitType: item.unitType ?? "UNIT",
                             unitPrice: item.unitPrice ?? 0,
                             taxRate: item.taxRate ?? 0,
-                            totalPrice:
-                                (item.quantity ?? 1) *
-                                (item.unitPrice ?? 0) +
-                                ((item.quantity ?? 1) *
-                                    (item.unitPrice ?? 0) *
-                                    (item.taxRate ?? 0)) /
-                                100,
+                            // totalPrice:
+                            //     (item.quantity ?? 1) *
+                            //     (item.unitPrice ?? 0) +
+                            //     ((item.quantity ?? 1) *
+                            //         (item.unitPrice ?? 0) *
+                            //         (item.taxRate ?? 0)) /
+                            //     100,
+                            "totalPrice": item.itemTotal ?? 0,
+
                         })),
                     }
                     : undefined,
