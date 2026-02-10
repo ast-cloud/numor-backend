@@ -619,6 +619,10 @@ async function getSignedPdfUrl(user, id) {
         throw new Error('Invoice not found');
     }
 
+    if (invoice.pdfStatus == 'NOT_STARTED') {
+        throw new Error('PDF status is in draft');
+    }
+
     if (invoice.pdfStatus !== 'READY') {
         throw new Error('PDF not ready');
     }
