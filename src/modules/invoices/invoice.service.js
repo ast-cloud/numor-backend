@@ -3,6 +3,7 @@ const ocrService = require('../../services/ocr.service');
 const aiService = require('../ai/ai.service');
 const invoiceQueue = require('../../queues/invoice.queue');
 const qstashService = require("../../queues/invoice.qstash");
+const { is } = require('zod/locales');
 
 function isExcelFile(mimetype, filename) {
     if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
@@ -227,6 +228,8 @@ async function listInvoiceProducts(invoiceId, page, limit) {
 }
 
 async function confirmAndCreateInvoice(user, data) {
+    const isDraft = data.status === 'DRAFT';
+    const invoiceId = data.id;
     // 1️⃣ Calculate totals safely
     const subtotal = data.items.reduce(
         (s, i) => s + (i.quantity ?? 1) * (i.unitPrice ?? 0),
@@ -255,6 +258,83 @@ async function confirmAndCreateInvoice(user, data) {
 
     const exchangeRate = data.exchangeRate ?? 1;
     const baseAmount = totalAmount * exchangeRate;
+
+    if (invoiceId) {
+        const existing = await prisma.invoiceBill.findFirst({
+            where: {
+                id: BigInt(invoiceId),
+                orgId: BigInt(user.orgId),
+            },
+        });
+        // console.log('Existing invoice:', existing);
+        if (!existing) {
+            throw new Error("Invoice not found");
+        }
+
+        const updated = await prisma.invoiceBill.update({
+            where: { id: BigInt(invoiceId) },
+            data: {
+                // Amounts
+                subtotal,
+                discount,
+                taxAmount,
+                shippingCost,
+                totalAmount,
+                paidAmount,
+                balanceDue,
+                effectiveTax,
+
+                // Status logic
+                status: data.status,
+                pdfStatus:
+                    !isDraft && existing.pdfStatus === "NOT_STARTED"
+                        ? "QUEUED"
+                        : existing.pdfStatus,
+
+                confirmedAt: !isDraft && !existing.confirmedAt
+                    ? new Date()
+                    : existing.confirmedAt,
+
+                sentAt: !isDraft && !existing.sentAt
+                    ? new Date()
+                    : existing.sentAt,
+
+                // Update everything else as usual
+                notes: data.notes,
+                paymentTerms: data.paymentTerms,
+                taxSummary: data.taxSummary,
+                bankDetails: data.bankDetails,
+
+                // Replace items safely
+                items: {
+                    deleteMany: {},
+                    create: (data.items ?? []).map((item) => ({
+                        itemName: item.name,
+                        description: item.description,
+                        quantity: item.quantity ?? 1,
+                        unitPrice: item.unitPrice ?? 0,
+                        taxRate: item.taxRate ?? 0,
+                        totalPrice:
+                            (item.quantity ?? 1) *
+                            (item.unitPrice ?? 0) +
+                            ((item.quantity ?? 1) *
+                                (item.unitPrice ?? 0) *
+                                (item.taxRate ?? 0)) / 100,
+                    })),
+                },
+            },
+            include: { items: true },
+        });
+
+        // 3️⃣ Queue PDF only once
+        if (!isDraft && existing.pdfStatus === "NOT_STARTED") {
+            await qstashService.publishInvoicePdfJob({
+                invoiceId: updated.id,
+            });
+        }
+
+        return updated;
+    }
 
     // 2️⃣ Create CONFIRMED + SENT invoice
     const invoice = await prisma.invoiceBill.create({
@@ -296,7 +376,7 @@ async function confirmAndCreateInvoice(user, data) {
             status: data.status ?? "UNPAID",
             confirmedAt: new Date(),
             sentAt: new Date(),
-            pdfStatus: "QUEUED",
+            pdfStatus: isDraft ? "NOT_STARTED" : "QUEUED",
             category: data.category ?? "OTHER",
 
             // 🧾 Seller snapshot
@@ -363,10 +443,14 @@ async function confirmAndCreateInvoice(user, data) {
     // await invoiceQueue.enqueue({ invoiceId: invoice.id });
 
     // 3️⃣ Trigger PDF generation (async, reliable)
-    await qstashService.publishInvoicePdfJob({
-        invoiceId: invoice.id,
-    });
-
+    // await qstashService.publishInvoicePdfJob({
+    //     invoiceId: invoice.id,
+    // });
+    if (!isDraft) {
+        await qstashService.publishInvoicePdfJob({
+            invoiceId: invoice.id,
+        });
+    }
 
     return invoice;
 }
@@ -385,7 +469,7 @@ async function updateInvoice(user, id, data) {
                 ((i.quantity ?? 1) *
                     (i.unitPrice ?? 0) *
                     (i.taxRate ?? 0)) /
-                    100,
+                100,
             0
         );
 
@@ -487,22 +571,22 @@ async function updateInvoice(user, id, data) {
                 // 🔥 Replace items safely
                 items: data.items
                     ? {
-                          deleteMany: {},
-                          create: data.items.map((item) => ({
-                              itemName: item.name,
-                              description: item.description,
-                              quantity: item.quantity ?? 1,
-                              unitPrice: item.unitPrice ?? 0,
-                              taxRate: item.taxRate ?? 0,
-                              totalPrice:
-                                  (item.quantity ?? 1) *
-                                      (item.unitPrice ?? 0) +
-                                  ((item.quantity ?? 1) *
-                                      (item.unitPrice ?? 0) *
-                                      (item.taxRate ?? 0)) /
-                                      100,
-                          })),
-                      }
+                        deleteMany: {},
+                        create: data.items.map((item) => ({
+                            itemName: item.name,
+                            description: item.description,
+                            quantity: item.quantity ?? 1,
+                            unitPrice: item.unitPrice ?? 0,
+                            taxRate: item.taxRate ?? 0,
+                            totalPrice:
+                                (item.quantity ?? 1) *
+                                (item.unitPrice ?? 0) +
+                                ((item.quantity ?? 1) *
+                                    (item.unitPrice ?? 0) *
+                                    (item.taxRate ?? 0)) /
+                                100,
+                        })),
+                    }
                     : undefined,
             },
             include: { items: true },

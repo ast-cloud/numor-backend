@@ -22,19 +22,19 @@ function generateInvoicePdf(invoice) {
       dueDate: invoice.dueDate.toISOString().split("T")[0],
     });
 
-    // const browser = await puppeteer.launch({ headless: "new" });
-    const browser = await puppeteer.launch({
-      headless: "new",
-      timeout: 60000,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--no-zygote",
-        "--single-process",
-      ],
-    });
+    const browser = await puppeteer.launch({ headless: "new" });
+    // const browser = await puppeteer.launch({
+    //   headless: "new",
+    //   timeout: 60000,
+    //   args: [
+    //     "--no-sandbox",
+    //     "--disable-setuid-sandbox",
+    //     "--disable-dev-shm-usage",
+    //     "--disable-gpu",
+    //     "--no-zygote",
+    //     "--single-process",
+    //   ],
+    // });
 
 
     const page = await browser.newPage();
