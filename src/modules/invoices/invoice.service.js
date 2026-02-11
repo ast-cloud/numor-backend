@@ -234,6 +234,7 @@ async function listInvoiceProducts(invoiceId, page=1, limit=10) {
 }
 
 async function confirmAndCreateInvoice(user, data) {
+    console.log('Invoice data before processing:', data);
     const isDraft = data.status === 'DRAFT';
     const invoiceId = data.id;
     // 1️⃣ Calculate totals safely
@@ -340,7 +341,7 @@ async function confirmAndCreateInvoice(user, data) {
                 invoiceId: updated.id,
             });
         }
-
+        console.log('Data after Processing:', updated.id);
         return updated;
     }
 
@@ -461,6 +462,7 @@ async function confirmAndCreateInvoice(user, data) {
             invoiceId: invoice.id,
         });
     }
+    console.log('Data after Processing:', invoice);
 
     return invoice;
 }
