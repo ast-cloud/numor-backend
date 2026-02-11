@@ -624,19 +624,39 @@ async function getSignedPdfUrl(user, id) {
     });
 
     if (!invoice) {
-        throw new Error('Invoice not found');
+        const err = new Error('Invoice not found');
+        err.statusCode = 404;
+        throw err;
     }
 
-    if (invoice.pdfStatus == 'NOT_STARTED') {
-        throw new Error('PDF status is in draft');
+    if (invoice.pdfStatus === 'NOT_STARTED') {
+        const err = new Error('PDF generation not started yet');
+        err.statusCode = 409; // Conflict
+        throw err;
     }
 
-    if (invoice.pdfStatus !== 'READY') {
-        throw new Error('PDF not ready');
+    if (invoice.pdfStatus === 'QUEUED') {
+        const err = new Error('PDF is queued for processing');
+        err.statusCode = 202; // Accepted (still processing)
+        throw err;
+    }
+
+    if (invoice.pdfStatus === 'PROCESSING') {
+        const err = new Error('PDF is currently being generated');
+        err.statusCode = 202;
+        throw err;
+    }
+
+    if (invoice.pdfStatus === 'FAILED') {
+        const err = new Error('PDF generation failed');
+        err.statusCode = 500;
+        throw err;
     }
 
     if (!invoice.pdfKey) {
-        throw new Error('PDF not generated');
+        const err = new Error('PDF not generated');
+        err.statusCode = 500;
+        throw err;
     }
 
     const storage = require('../../storage/storage.service');

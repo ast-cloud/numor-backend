@@ -109,7 +109,7 @@ exports.getInvoicePdf = async (req, res) => {
 
     return res.json({ success: true, url });
   } catch (err) {
-    return res.status(400).json({
+    return res.status(err.statusCode || 500).json({
       success: false,
       message: err.message
     });
