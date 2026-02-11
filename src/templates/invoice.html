@@ -171,9 +171,9 @@
                <p>Tax ID: {{sellerTaxId}}</p>
                <p>Email: {{sellerEmail}}</p>
                <p>Phone: {{sellerPhone}}</p>
-               {{#if placeOfSupply}}
+               {% comment %} {{#if placeOfSupply}}
                <p>Place of Supply: {{placeOfSupply}}</p>
-               {{/if}}
+               {{/if}} {% endcomment %}
                {{#if sacCode}}
                <p>SAC Code: {{sacCode}}</p>
                {{/if}}
@@ -245,7 +245,7 @@
                   <tr class="total-row">
                      <td>Total</td>
                      <td class="right highlight">{{currency}} {{totalAmount}}</td>
-                  </tr>
+                  {% comment %} </tr>
                   <tr>
                      <td>Paid</td>
                      <td class="right">{{paidAmount}}</td>
@@ -253,7 +253,7 @@
                   <tr>
                      <td>Balance Due</td>
                      <td class="right">{{balanceDue}}</td>
-                  </tr>
+                  </tr> {% endcomment %}
                </table>
             </div>
          </div>
@@ -277,9 +277,9 @@
                   {{#if bankAddress}}
                   <p><strong>Bank Address:</strong> {{bankAddress}}</p>
                   {{/if}}
-                  {{#if paymentLink}}
+                  {% comment %} {{#if paymentLink}}
                   <p><strong>Payment Link:</strong> {{paymentLink}}</p>
-                  {{/if}}
+                  {{/if}} {% endcomment %}
                </div>
                <div>
                   <h4>Notes / Terms</h4>
