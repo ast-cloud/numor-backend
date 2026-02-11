@@ -4,6 +4,7 @@ const aiService = require('../ai/ai.service');
 const invoiceQueue = require('../../queues/invoice.queue');
 const qstashService = require("../../queues/invoice.qstash");
 const { is } = require('zod/locales');
+const storage = require('../../storage/storage.service');
 
 function isExcelFile(mimetype, filename) {
     if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
@@ -219,7 +220,7 @@ async function listInvoices(user, page = 1, limit = 10) {
     });
 }
 
-async function listInvoiceProducts(invoiceId, page=1, limit=10) {
+async function listInvoiceProducts(invoiceId, page = 1, limit = 10) {
     page = Number(page);
     limit = Number(limit);
 
@@ -614,7 +615,6 @@ async function updateInvoice(user, id, data) {
     }
 }
 
-
 async function getInvoice(user, id) {
     return prisma.invoiceBill.findFirstOrThrow({
         where: { id: BigInt(id), orgId: user.orgId },
@@ -730,6 +730,14 @@ async function deleteInvoice(user, id) {
 
     if (!invoice) {
         throw new Error('Invoice not found');
+    }
+
+    if (invoice.pdfKey) {
+        try {
+            await storage.remove(invoice.pdfKey);
+        } catch (err) {
+            console.error("Failed to delete file:", err.message);
+        }
     }
 
     // Delete invoice items first (due to foreign key constraint)

@@ -34,8 +34,18 @@ async function getSignedUrl(key) {
   return data.signedUrl;
 }
 
+async function remove(key) {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .remove([key]); // must be array
 
+  if (error) throw error;
+
+  return data;
+}
+  
 module.exports = {
   upload,
-  getSignedUrl
+  getSignedUrl,
+  remove
 };
