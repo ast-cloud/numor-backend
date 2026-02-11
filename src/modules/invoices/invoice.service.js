@@ -721,7 +721,31 @@ async function pushPdfReady({ userId, invoiceId, signedUrl }) {
     clients.delete(key);
 };
 
+async function deleteInvoice(user, id) {
+    const invoice = await prisma.invoiceBill.findFirst({
+        where: { id: BigInt(id), orgId: user.orgId }
+    });
 
+    if (!invoice) {
+        throw new Error('Invoice not found');
+    }
+
+    // Delete invoice items first (due to foreign key constraint)
+    await prisma.invoiceBillItem.deleteMany({
+        where: { invoiceId: BigInt(id) }
+    });
+
+    // Delete the invoice
+    const deletedInvoice = await prisma.invoiceBill.delete({
+        where: { id: BigInt(id) }
+    });
+
+    return {
+        success: true,
+        message: 'Invoice deleted successfully',
+        id: deletedInvoice.id
+    };
+}
 
 module.exports = {
     saveInvoiceFromPreview,
@@ -733,5 +757,6 @@ module.exports = {
     getSignedPdfUrl,
     openStream,
     pushPdfReady,
-    updateInvoice
+    updateInvoice,
+    deleteInvoice
 };

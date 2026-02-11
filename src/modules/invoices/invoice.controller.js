@@ -136,3 +136,23 @@ exports.streamInvoicePdfStatus = (req, res) => {
     invoiceId: req.params.id
   });
 };
+
+exports.deleteInvoice = async (req, res) => {
+  try {
+    const user = req.user;
+    const id = req.params.id;
+
+    const result = await invoiceService.deleteInvoice(user, id);
+
+    return res.json({
+      success: true,
+      data: result
+    });
+  } catch (err) {
+    console.error('Error in deleteInvoice:', err);
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+};

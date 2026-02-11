@@ -65,4 +65,10 @@ router.get(
   controller.streamInvoicePdfStatus
 )
 
+router.delete(
+  '/:id',
+  auth,
+  controller.deleteInvoice
+)
+
 module.exports = router;
