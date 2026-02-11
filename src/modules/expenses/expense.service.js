@@ -3,55 +3,55 @@ const ocrService = require('../../services/ocr.service');
 const aiService = require('../ai/ai.service');
 
 function isExcelFile(mimetype, filename) {
-    if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-        mimetype === "application/vnd.ms-excel") {
-        return true;
-    }
-    if (typeof filename === 'string' &&
-        (filename.endsWith('.xlsx') || filename.endsWith('.xls'))) {
-        return true;
-    }
-    return false;
+  if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    mimetype === "application/vnd.ms-excel") {
+    return true;
+  }
+  if (typeof filename === 'string' &&
+    (filename.endsWith('.xlsx') || filename.endsWith('.xls'))) {
+    return true;
+  }
+  return false;
 }
 
 function isCsvFile(mimetype, filename) {
-    return (
-        mimetype === 'text/csv' ||
-        mimetype === 'application/csv' ||
-        (typeof filename === 'string' && filename.endsWith('.csv'))
-    );
+  return (
+    mimetype === 'text/csv' ||
+    mimetype === 'application/csv' ||
+    (typeof filename === 'string' && filename.endsWith('.csv'))
+  );
 }
 
 exports.previewExpenseAI = async function (file) {
-const { path, mimetype, originalname } = file;
-    //Excel 
-    if (isExcelFile(mimetype, originalname)) {
-        const parsed = await aiService.parseExpenseFromExcel(path);
-        return {
-            source: "gemini-vision-excel",
-            parsedData: parsed,
-            confidence: parsed.confidence || null,
-        };
-    }
-
-    if (isCsvFile(mimetype, originalname)) {
-        const parsed = await aiService.parseExpenseFromCsv(path);
-        return {
-            source: "gemini-vision-csv",
-            parsedData: parsed,
-            confidence: parsed.confidence || null,
-        };
-    }
-
-
-    //Pdf and Image
-    const parsed = await aiService.parseExpenseFromFile(path);
-
+  const { path, mimetype, originalname } = file;
+  //Excel 
+  if (isExcelFile(mimetype, originalname)) {
+    const parsed = await aiService.parseExpenseFromExcel(path);
     return {
-        source: "gemini-vision",
-        parsedData: parsed,
-        confidence: parsed.confidence || null,
+      source: "gemini-vision-excel",
+      parsedData: parsed,
+      confidence: parsed.confidence || null,
     };
+  }
+
+  if (isCsvFile(mimetype, originalname)) {
+    const parsed = await aiService.parseExpenseFromCsv(path);
+    return {
+      source: "gemini-vision-csv",
+      parsedData: parsed,
+      confidence: parsed.confidence || null,
+    };
+  }
+
+
+  //Pdf and Image
+  const parsed = await aiService.parseExpenseFromFile(path);
+
+  return {
+    source: "gemini-vision",
+    parsedData: parsed,
+    confidence: parsed.confidence || null,
+  };
   return {
     source: "gemini-vision",
     parsedData: parsed,
@@ -98,11 +98,16 @@ exports.saveExpenseFromPreview = async (user, payload) => {
   });
 };
 
-exports.listExpenses = async (user, page, limit) => {
+exports.listExpenses = async (user, page = 1, limit = 10) => {
+  page = Number(page);
+  limit = Number(limit);
+
+  if (Number.isNaN(page) || page < 1) page = 1;
+  if (Number.isNaN(limit) || limit < 1) limit = 10;
   const offset = (page - 1) * limit;
   return prisma.expenseBill.findMany({
     where: {
-        userId: BigInt(user.userId),
+      userId: BigInt(user.userId),
     },
     include: {
       items: true,
@@ -115,7 +120,12 @@ exports.listExpenses = async (user, page, limit) => {
   });
 };
 
-exports.listExpenseItems = async (expenseId, page, limit) => {
+exports.listExpenseItems = async (expenseId, page = 1, limit = 10) => {
+  page = Number(page);
+  limit = Number(limit);
+
+  if (Number.isNaN(page) || page < 1) page = 1;
+  if (Number.isNaN(limit) || limit < 1) limit = 10;
   const offset = (page - 1) * limit;
   return prisma.expenseBillItem.findMany({
     where: { expenseId: BigInt(expenseId) },
