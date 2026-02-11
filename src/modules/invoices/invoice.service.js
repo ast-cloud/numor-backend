@@ -672,7 +672,7 @@ async function getSignedPdfUrl(user, id) {
     }
 
     const storage = require('../../storage/storage.service');
-    const url = storage.getSignedUrl(invoice.pdfKey);
+    const url = await storage.getSignedUrl(invoice.pdfKey);
     return {
         success: true,
         status: 'READY',
