@@ -102,12 +102,24 @@ exports.getInvoice = async (req, res) => {
 
 exports.getInvoicePdf = async (req, res) => {
   try {
-    const url = await invoiceService.getSignedPdfUrl(
+    const result = await invoiceService.getSignedPdfUrl(
       req.user,
       req.params.id
     );
 
-    return res.json({ success: true, url });
+    // Map status to HTTP status code
+    const statusMap = {
+      'INVOICE_NOT_FOUND': 404,
+      'NOT_STARTED': 202,
+      'QUEUED': 202,
+      'PROCESSING': 202,
+      'READY': 200,
+      'FAILED': 500,
+      'NOT_GENERATED': 500
+    };
+
+    const httpStatus = statusMap[result.status] || 500;
+    return res.status(httpStatus).json(result);
   } catch (err) {
     return res.status(err.statusCode || 500).json({
       success: false,

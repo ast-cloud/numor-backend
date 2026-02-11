@@ -624,43 +624,60 @@ async function getSignedPdfUrl(user, id) {
     });
 
     if (!invoice) {
-        const err = new Error('Invoice not found');
-        err.statusCode = 404;
-        throw err;
+        return {
+            success: false,
+            status: 'INVOICE_NOT_FOUND',
+            message: 'Invoice not found'
+        };
     }
 
     if (invoice.pdfStatus === 'NOT_STARTED') {
-        const err = new Error('PDF generation not started yet');
-        err.statusCode = 409; // Conflict
-        throw err;
+        return {
+            success: false,
+            status: 'NOT_STARTED',
+            message: 'PDF generation not started yet'
+        };
     }
 
     if (invoice.pdfStatus === 'QUEUED') {
-        const err = new Error('PDF is queued for processing');
-        err.statusCode = 202; // Accepted (still processing)
-        throw err;
+        return {
+            success: false,
+            status: 'QUEUED',
+            message: 'PDF is queued for processing'
+        };
     }
 
     if (invoice.pdfStatus === 'PROCESSING') {
-        const err = new Error('PDF is currently being generated');
-        err.statusCode = 202;
-        throw err;
+        return {
+            success: false,
+            status: 'PROCESSING',
+            message: 'PDF is currently being generated'
+        };
     }
 
     if (invoice.pdfStatus === 'FAILED') {
-        const err = new Error('PDF generation failed');
-        err.statusCode = 500;
-        throw err;
+        return {
+            success: false,
+            status: 'FAILED',
+            message: 'PDF generation failed'
+        };
     }
 
     if (!invoice.pdfKey) {
-        const err = new Error('PDF not generated');
-        err.statusCode = 500;
-        throw err;
+        return {
+            success: false,
+            status: 'NOT_GENERATED',
+            message: 'PDF not generated'
+        };
     }
 
     const storage = require('../../storage/storage.service');
-    return storage.getSignedUrl(invoice.pdfKey);
+    const url = storage.getSignedUrl(invoice.pdfKey);
+    return {
+        success: true,
+        status: 'READY',
+        url
+    };
 }
 
 const clients = new Map();
