@@ -20,6 +20,11 @@ function generateInvoicePdf(invoice) {
       ...invoice,
       issueDate: invoice.issueDate.toISOString().split("T")[0],
       dueDate: invoice.dueDate.toISOString().split("T")[0],
+
+      items: invoice.items?.map((item, index) => ({
+        ...item,
+        serialNo: index + 1,
+      })),
     });
 
     // const browser = await puppeteer.launch({ headless: "new" });
