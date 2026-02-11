@@ -220,7 +220,7 @@ model InvoiceBillItem {
   itemName    String
   description String?
   quantity    Decimal @default(1) @db.Decimal(10, 2)
-  unitType    String? @default("UNIT)
+  unitType    String? @default("UNIT")
   unitPrice   Decimal @db.Decimal(15, 2)
   taxRate     Decimal @default(0.00) @db.Decimal(15, 2)
   totalPrice  Decimal @db.Decimal(10, 2)
