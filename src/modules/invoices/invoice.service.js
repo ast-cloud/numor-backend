@@ -219,7 +219,12 @@ async function listInvoices(user, page = 1, limit = 10) {
     });
 }
 
-async function listInvoiceProducts(invoiceId, page, limit) {
+async function listInvoiceProducts(invoiceId, page=1, limit=10) {
+    page = Number(page);
+    limit = Number(limit);
+
+    if (Number.isNaN(page) || page < 1) page = 1;
+    if (Number.isNaN(limit) || limit < 1) limit = 10;
     const offset = (page - 1) * limit;
     return prisma.invoiceBillItem.findMany({
         where: { invoiceId: BigInt(invoiceId) },
