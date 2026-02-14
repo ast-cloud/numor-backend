@@ -73,7 +73,7 @@ exports.saveExpenseFromPreview = async (user, payload) => {
           : new Date(),
         totalAmount: payload.totalAmount,
         category: payload.category ?? 'OTHER',
-        paymentMethod: payload.paymentMethod ?? null,
+        paymentMethod: payload.paymentMethod ?? "CASH",
         ocrExtracted: true,
         ocrConfidence: payload.confidence ?? null,
       },
@@ -88,6 +88,8 @@ exports.saveExpenseFromPreview = async (user, payload) => {
             itemName: item.name ?? null,
             quantity: item.quantity ?? 1,
             unitPrice: item.unitPrice ?? 0,
+            unitType: item.unitType ?? "UNIT",
+            taxRate: item.taxRate ?? 0,
             totalPrice: item.total ?? 0,
           },
         });
@@ -120,6 +122,12 @@ exports.listExpenses = async (user, page = 1, limit = 10) => {
   });
 };
 
+exports.getExpense = async (user, id) => {
+    return prisma.expenseBill.findFirstOrThrow({
+        where: { id: BigInt(id), orgId: user.orgId }
+      });
+};
+
 exports.listExpenseItems = async (expenseId, page = 1, limit = 10) => {
   page = Number(page);
   limit = Number(limit);
@@ -128,9 +136,84 @@ exports.listExpenseItems = async (expenseId, page = 1, limit = 10) => {
   if (Number.isNaN(limit) || limit < 1) limit = 10;
   const offset = (page - 1) * limit;
   return prisma.expenseBillItem.findMany({
-    where: { expenseId: BigInt(expenseId) },
+    where: {
+      expenseId: BigInt(expenseId),
+    },
     take: limit,
     skip: offset,
+  });
+};
+
+exports.updateExpense = async (user, expenseId, payload) => {
+  return prisma.$transaction(async (tx) => {
+
+    const expense = await tx.expenseBill.findFirst({
+      where: {
+        id: BigInt(expenseId),
+        userId: BigInt(user.userId),
+      },
+    });
+
+    if (!expense) {
+      throw new Error("Expense not found");
+    }
+
+    // 1️⃣ Update main expense
+    await tx.expenseBill.update({
+      where: { id: expense.id },
+      data: {
+        merchant: payload.merchant ?? expense.merchant,
+        expenseDate: payload.expenseDate
+          ? new Date(payload.expenseDate)
+          : expense.expenseDate,
+        totalAmount: payload.totalAmount ?? expense.totalAmount,
+        category: payload.category ?? expense.category,
+        paymentMethod: payload.paymentMethod ?? expense.paymentMethod,
+      },
+    });
+
+    // 2️⃣ Replace items (cleanest approach)
+    if (Array.isArray(payload.items)) {
+      await tx.expenseBillItem.deleteMany({
+        where: { expenseId: expense.id },
+      });
+
+      await tx.expenseBillItem.createMany({
+        data: payload.items.map(item => ({
+          expenseId: expense.id,
+          itemName: item.name ?? null,
+          quantity: item.quantity ?? 1,
+          unitPrice: item.unitPrice ?? 0,
+          unitType: item.unitType ?? "UNIT",
+          taxRate: item.taxRate ?? 0,
+          totalPrice: item.total ?? 0,
+        })),
+      });
+    }
+
+    return { message: "Expense updated successfully" };
+  });
+};
+
+exports.deleteExpense = async (user, expenseId) => {
+  return prisma.$transaction(async (tx) => {
+
+    const expense = await tx.expenseBill.findFirst({
+      where: {
+        id: BigInt(expenseId),
+        userId: BigInt(user.userId),
+      },
+    });
+
+    if (!expense) {
+      throw new Error("Expense not found");
+    }
+
+    await tx.expenseBill.delete({
+      where: { id: expense.id },
+    });
+
+    return { message: "Expense deleted successfully" };
   });
 };
 

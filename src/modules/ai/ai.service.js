@@ -136,47 +136,61 @@ function normalizeInvoice(data) {
 }
 
 function normalizeExpense(data) {
-  if (!data || !data.totalAmount) {
+  if (!data || !Array.isArray(data.items) || data.items.length === 0) {
     throw new Error("Invalid expense data from AI");
   }
 
-  // Date normalization (safe fallback)
-  const parsedDate = data.expenseDate ?? null
-  const expenseDate = parsedDate || new Date();
+  // 🧮 Normalize items first
+  const items = data.items.map((item) => {
+    const quantity = Number(item.quantity || 1);
+    const unitPrice = Number(item.unitPrice || 0);
+    const taxRate = Number(item.taxRate || 0);
 
-  const items = Array.isArray(data.items)
-    ? data.items.map((item) => {
-      const quantity = Number(item.quantity || 1);
-      const unitPrice = Number(item.unitPrice || 0);
+    // If total not provided → calculate
+    const calculatedTotal =
+      quantity * unitPrice;
 
-      return {
-        itemName: item.name || "Unknown item",
-        quantity,
-        unitPrice,
-        taxPercent: Number(item.taxPercent || 0),
-        totalPrice:
-          Number(item.total) || Number((quantity * unitPrice).toFixed(2)),
-      };
-    })
-    : [];
+    const total =
+      Number(item.total) || Number(calculatedTotal.toFixed(2));
 
-  const calculatedTotal =
-    items.length > 0
-      ? items.reduce((sum, i) => sum + i.totalPrice, 0)
-      : Number(data.totalAmount);
+    return {
+      name: item.name ?? null,
+      quantity,
+      unitPrice,
+      unitType: item.unitType ?? "UNIT",
+      taxRate,
+      total,
+    };
+  });
+
+  // 🧮 Calculate subtotal from items
+  const subtotal = items.reduce(
+    (sum, item) => sum + Number(item.total || 0),
+    0
+  );
+
+  // Optional additional charges
+  const discount = Number(data.discount || 0);
+  const taxAmount = Number(data.taxAmount || 0);
+
+  // Final total fallback logic
+  const totalAmount =
+    Number(data.totalAmount) ||
+    Number((subtotal - discount + taxAmount).toFixed(2));
 
   return {
-    merchant: data.merchant || "Unknown",
-    expenseDate,
-    totalAmount: Number(data.totalAmount ?? calculatedTotal),
-    category: mapExpenseCategory(data.category),
-    paymentMethod: data.paymentMethod || null,
+    merchant: data.merchant ?? null,
+    expenseDate: data.expenseDate ?? null,
+    totalAmount,
+    category: data.category ?? "OTHER",
+    paymentMethod: data.paymentMethod ?? "CASH",
+    receiptUrl: data.receiptUrl ?? null,
     ocrExtracted: true,
-    ocrConfidence:
-      data.confidence !== undefined ? Number(data.confidence) : null,
+    confidence: Number(data.confidence ?? data.ocrConfidence ?? 0),
     items,
   };
 }
+
 
 function csvToJson(filePath) {
   return new Promise((resolve, reject) => {

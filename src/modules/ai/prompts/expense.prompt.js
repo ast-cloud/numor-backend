@@ -36,12 +36,14 @@ JSON format:
   "totalAmount": number,
   "category": string | null,
   "paymentMethod": string | null,
+  "receiptUrl": string | null,
   "items": [
     {
       "name": string | null,
       "quantity": number,
       "unitPrice": number,
-      "taxPercent": number,
+      "unitType": string,
+      "taxRate": number,
       "total": number
     }
   ],

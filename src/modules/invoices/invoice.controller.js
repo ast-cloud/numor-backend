@@ -96,8 +96,19 @@ exports.confirmAndCreateInvoice = async function (req, res) {
 
 
 exports.getInvoice = async (req, res) => {
-  const invoice = await invoiceService.getInvoice(req.user, req.params.id);
-  res.json(invoice);
+  try {
+    const invoice = await invoiceService.getInvoice(req.user, req.params.id);
+    return res.json({
+      success: true,
+      data: invoice
+    });
+  } catch (err) {
+    console.error('Error in getInvoice:', err);
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
 };
 
 exports.getInvoicePdf = async (req, res) => {

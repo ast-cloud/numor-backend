@@ -29,10 +29,27 @@ router.get(
 )
 
 router.get(
-  '/:id/products',
+  '/:id', 
+  auth, 
+  controller.getExpense
+);
+
+router.get(
+  '/:id/items',
   auth,
-  controller.listExpenseProduct
+  controller.listExpenseItems
 )
 
+router.post(
+  '/:id/updateExpense',
+  auth,
+  controller.updateExpense
+)
+
+router.delete(
+  '/:id',
+  auth,
+  controller.deleteExpense
+)
 
 module.exports = router;

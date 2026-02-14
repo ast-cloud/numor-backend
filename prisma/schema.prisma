@@ -225,7 +225,7 @@ model InvoiceBillItem {
   taxRate     Decimal @default(0.00) @db.Decimal(15, 2)
   totalPrice  Decimal @db.Decimal(10, 2)
 
-  invoice InvoiceBill @relation(fields: [invoiceId], references: [id])
+  invoice InvoiceBill @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
@@ -241,7 +241,7 @@ model ExpenseBill {
   expenseDate   DateTime
   totalAmount   Decimal  @db.Decimal(15, 2)
   category      String   @default("OTHER")
-  paymentMethod String?
+  paymentMethod String? //UPI, CARD, CASH
 
   receiptUrl    String?
   ocrExtracted  Boolean  @default(false)
@@ -254,6 +254,8 @@ model ExpenseBill {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])   
+  @@index([orgId])    
   @@map("expense_bills")
 }
 
@@ -264,12 +266,15 @@ model ExpenseBillItem {
   itemName   String?
   quantity   Decimal @default(1) @db.Decimal(15, 2)
   unitPrice  Decimal @db.Decimal(15, 2)
+  unitType    String? @default("UNIT")
+  taxRate     Decimal @default(0.00) @db.Decimal(15, 2)
   totalPrice Decimal @db.Decimal(15, 2)
 
-  expense ExpenseBill @relation(fields: [expenseId], references: [id])
+  expense ExpenseBill @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
+  @@index([expenseId])   
   @@map("expense_bill_items")
 }
 
