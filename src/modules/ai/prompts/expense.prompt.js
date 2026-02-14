@@ -27,6 +27,7 @@ Rules:
   "Bank Charges",
   "Training & Education",
   "Other"
+- taxPercent should be the percentage value between 0 and 100
 
 JSON format:
 {
