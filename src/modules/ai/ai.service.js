@@ -153,6 +153,7 @@ function normalizeExpense(data) {
         itemName: item.name || "Unknown item",
         quantity,
         unitPrice,
+        taxPercent: Number(item.taxPercent || 0),
         totalPrice:
           Number(item.total) || Number((quantity * unitPrice).toFixed(2)),
       };
