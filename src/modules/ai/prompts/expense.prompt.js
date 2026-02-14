@@ -40,6 +40,7 @@ JSON format:
       "name": string | null,
       "quantity": number,
       "unitPrice": number,
+      "taxPercent": number,
       "total": number
     }
   ],
