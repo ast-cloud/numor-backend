@@ -1,6 +1,8 @@
 const prisma = require('../../config/database');
 const ocrService = require('../../services/ocr.service');
 const aiService = require('../ai/ai.service');
+const fs = require("fs");
+const storageService = require("../../storage/storage.service");
 
 function isExcelFile(mimetype, filename) {
   if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
@@ -22,42 +24,88 @@ function isCsvFile(mimetype, filename) {
   );
 }
 
+async function uploadExpenseFile(file) {
+  const buffer = await fs.promises.readFile(file.path);
+  const key = `expenses/${Date.now()}-${file.originalname}`;
+
+  await storageService.upload(key, buffer);
+
+  return key; // 👈 return this
+}
+
+
+// exports.previewExpenseAI = async function (file) {
+//   const { path, mimetype, originalname } = file;
+//   //Excel 
+//   if (isExcelFile(mimetype, originalname)) {
+//     const parsed = await aiService.parseExpenseFromExcel(path);
+//     return {
+//       source: "gemini-vision-excel",
+//       parsedData: parsed,
+//       confidence: parsed.confidence || null,
+//     };
+//   }
+
+//   if (isCsvFile(mimetype, originalname)) {
+//     const parsed = await aiService.parseExpenseFromCsv(path);
+//     return {
+//       source: "gemini-vision-csv",
+//       parsedData: parsed,
+//       confidence: parsed.confidence || null,
+//     };
+//   }
+
+
+//   //Pdf and Image
+//   const parsed = await aiService.parseExpenseFromFile(path);
+
+//   return {
+//     source: "gemini-vision",
+//     parsedData: parsed,
+//     confidence: parsed.confidence || null,
+//   };
+//   return {
+//     source: "gemini-vision",
+//     parsedData: parsed,
+//     confidence: parsed.confidence || null,
+//   };
+// }
+
 exports.previewExpenseAI = async function (file) {
   const { path, mimetype, originalname } = file;
-  //Excel 
+
+  let parsed;
+  let source = "gemini-vision";
+
   if (isExcelFile(mimetype, originalname)) {
-    const parsed = await aiService.parseExpenseFromExcel(path);
-    return {
-      source: "gemini-vision-excel",
-      parsedData: parsed,
-      confidence: parsed.confidence || null,
-    };
+    parsed = await aiService.parseExpenseFromExcel(path);
+    source = "gemini-vision-excel";
+  } else if (isCsvFile(mimetype, originalname)) {
+    parsed = await aiService.parseExpenseFromCsv(path);
+    source = "gemini-vision-csv";
+  } else {
+    parsed = await aiService.parseExpenseFromFile(path);
   }
 
-  if (isCsvFile(mimetype, originalname)) {
-    const parsed = await aiService.parseExpenseFromCsv(path);
-    return {
-      source: "gemini-vision-csv",
-      parsedData: parsed,
-      confidence: parsed.confidence || null,
-    };
+  if (!parsed || !parsed.items?.length) {
+    throw new Error("Expense parsing failed");
   }
 
+  // 🔥 Upload after successful parse
+  const buffer = await fs.promises.readFile(path);
+  const key = `expenses/${Date.now()}-${originalname}`;
+  await storageService.upload(key, buffer);
 
-  //Pdf and Image
-  const parsed = await aiService.parseExpenseFromFile(path);
+  // 👇 Inject key
+  parsed.receiptUrl = key;
 
   return {
-    source: "gemini-vision",
+    source,
     parsedData: parsed,
     confidence: parsed.confidence || null,
   };
-  return {
-    source: "gemini-vision",
-    parsedData: parsed,
-    confidence: parsed.confidence || null,
-  };
-}
+};
+
 
 exports.saveExpenseFromPreview = async (user, payload) => {
   return prisma.$transaction(async (tx) => {
@@ -123,9 +171,9 @@ exports.listExpenses = async (user, page = 1, limit = 10) => {
 };
 
 exports.getExpense = async (user, id) => {
-    return prisma.expenseBill.findFirstOrThrow({
-        where: { id: BigInt(id), orgId: user.orgId }
-      });
+  return prisma.expenseBill.findFirstOrThrow({
+    where: { id: BigInt(id), orgId: user.orgId }
+  });
 };
 
 exports.listExpenseItems = async (expenseId, page = 1, limit = 10) => {
