@@ -95,8 +95,8 @@ exports.previewExpenseAI = async function (file) {
   const buffer = await fs.promises.readFile(path);
   const key = `expenses/${Date.now()}-${originalname}`;
   await storageService.upload(key, buffer);
+  await fs.promises.unlink(path); 
 
-  // 👇 Inject key
   parsed.receiptUrl = key;
 
   return {
@@ -122,6 +122,7 @@ exports.saveExpenseFromPreview = async (user, payload) => {
         totalAmount: payload.totalAmount,
         category: payload.category ?? 'OTHER',
         paymentMethod: payload.paymentMethod ?? "CASH",
+        receiptUrl: payload.receiptUrl ?? null,
         ocrExtracted: true,
         ocrConfidence: payload.confidence ?? null,
       },
@@ -265,4 +266,35 @@ exports.deleteExpense = async (user, expenseId) => {
   });
 };
 
+exports.getSignedPdfUrl = async(user, id) => {
+    const expense = await prisma.expenseBill.findFirst({
+        where: {
+            id: BigInt(id),
+            orgId: user.orgId
+        }
+    });
 
+    if (!expense) {
+        return {
+            success: false,
+            status: 'EXPENSE_NOT_FOUND',
+            message: 'Expense not found'
+        };
+    }
+
+    if (!expense.receiptUrl) {
+        return {
+            success: false,
+            status: 'FAILED',
+            message: 'PDF not available'
+        };
+    }
+
+    const storage = require('../../storage/storage.service');
+    const url = await storage.getSignedUrl(expense.receiptUrl);
+    return {
+        success: true,
+        status: 'READY',
+        url
+    };
+}

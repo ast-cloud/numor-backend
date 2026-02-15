@@ -119,3 +119,27 @@ exports.deleteExpense = async (req, res) => {
     });
   }
 };
+
+exports.getExpensePdf = async (req, res) => {
+  try {
+    const result = await expenseService.getSignedPdfUrl(
+      req.user,
+      req.params.id
+    );
+
+    // Map status to HTTP status code
+    const statusMap = {
+      'EXPENSE_NOT_FOUND': 404,
+      'READY': 200,
+      'FAILED': 500,
+    };
+
+    const httpStatus = statusMap[result.status] || 500;
+    return res.status(httpStatus).json(result);
+  } catch (err) {
+    return res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message
+    });
+  }
+};
