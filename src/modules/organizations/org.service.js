@@ -171,51 +171,51 @@ async function deleteCustomFieldDefinition(user, id) {
   });
 }
 
-async function getCustomUnits(user) {
+async function getCustomUnitsInvoice(user) {
   const org = await prisma.organization.findUnique({
     where: { id: BigInt(user.orgId) },
-    select: { customUnits: true },
+    select: { customUnitsInvoice: true },
   });
-  return org?.customUnits ?? [];
+  return org?.customUnitsInvoice ?? [];
 }
 
-async function addCustomUnit(user, unit) {
+async function addCustomUnitInvoice(user, unit) {
   const trimmed = (unit ?? "").trim();
   if (!trimmed) throw new Error("Unit name is required.");
   if (trimmed.length > 50) throw new Error("Unit name must be 50 characters or fewer.");
 
   const org = await prisma.organization.findUnique({
     where: { id: BigInt(user.orgId) },
-    select: { customUnits: true },
+    select: { customUnitsInvoice: true },
   });
-  const current = org?.customUnits ?? [];
+  const current = org?.customUnitsInvoice ?? [];
   if (current.map(u => u.toLowerCase()).includes(trimmed.toLowerCase())) {
     throw new Error("This unit already exists.");
   }
 
   const updated = await prisma.organization.update({
     where: { id: BigInt(user.orgId) },
-    data: { customUnits: { push: trimmed } },
-    select: { customUnits: true },
+    data: { customUnitsInvoice: { push: trimmed } },
+    select: { customUnitsInvoice: true },
   });
-  return updated.customUnits;
+  return updated.customUnitsInvoice;
 }
 
-async function deleteCustomUnit(user, unit) {
+async function deleteCustomUnitInvoice(user, unit) {
   const org = await prisma.organization.findUnique({
     where: { id: BigInt(user.orgId) },
-    select: { customUnits: true },
+    select: { customUnitsInvoice: true },
   });
-  const current = org?.customUnits ?? [];
+  const current = org?.customUnitsInvoice ?? [];
   const next = current.filter(u => u !== unit);
   if (next.length === current.length) throw new Error("Unit not found.");
 
   const updated = await prisma.organization.update({
     where: { id: BigInt(user.orgId) },
-    data: { customUnits: { set: next } },
-    select: { customUnits: true },
+    data: { customUnitsInvoice: { set: next } },
+    select: { customUnitsInvoice: true },
   });
-  return updated.customUnits;
+  return updated.customUnitsInvoice;
 }
 
 module.exports = {
@@ -228,7 +228,7 @@ module.exports = {
   createCustomFieldDefinition,
   updateCustomFieldDefinition,
   deleteCustomFieldDefinition,
-  getCustomUnits,
-  addCustomUnit,
-  deleteCustomUnit,
+  getCustomUnitsInvoice,
+  addCustomUnitInvoice,
+  deleteCustomUnitInvoice,
 };
