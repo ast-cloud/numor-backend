@@ -15,4 +15,8 @@ router.post('/custom-fields', auth, requirePermission("organizationSettings", "w
 router.put('/custom-fields/:id', auth, requirePermission("organizationSettings", "write"), orgController.updateCustomField);
 router.delete('/custom-fields/:id', auth, requirePermission("organizationSettings", "write"), orgController.deleteCustomField);
 
+router.get('/custom-units',          auth, requirePermission("organizationSettings", "read"),  orgController.listCustomUnits);
+router.post('/custom-units',         auth, requirePermission("organizationSettings", "write"), orgController.addCustomUnit);
+router.delete('/custom-units/:unit', auth, requirePermission("organizationSettings", "write"), orgController.deleteCustomUnit);
+
 module.exports = router;

@@ -171,6 +171,53 @@ async function deleteCustomFieldDefinition(user, id) {
   });
 }
 
+async function getCustomUnits(user) {
+  const org = await prisma.organization.findUnique({
+    where: { id: BigInt(user.orgId) },
+    select: { customUnits: true },
+  });
+  return org?.customUnits ?? [];
+}
+
+async function addCustomUnit(user, unit) {
+  const trimmed = (unit ?? "").trim();
+  if (!trimmed) throw new Error("Unit name is required.");
+  if (trimmed.length > 50) throw new Error("Unit name must be 50 characters or fewer.");
+
+  const org = await prisma.organization.findUnique({
+    where: { id: BigInt(user.orgId) },
+    select: { customUnits: true },
+  });
+  const current = org?.customUnits ?? [];
+  if (current.map(u => u.toLowerCase()).includes(trimmed.toLowerCase())) {
+    throw new Error("This unit already exists.");
+  }
+
+  const updated = await prisma.organization.update({
+    where: { id: BigInt(user.orgId) },
+    data: { customUnits: { push: trimmed } },
+    select: { customUnits: true },
+  });
+  return updated.customUnits;
+}
+
+async function deleteCustomUnit(user, unit) {
+  const org = await prisma.organization.findUnique({
+    where: { id: BigInt(user.orgId) },
+    select: { customUnits: true },
+  });
+  const current = org?.customUnits ?? [];
+  const next = current.filter(u => u !== unit);
+  if (next.length === current.length) throw new Error("Unit not found.");
+
+  const updated = await prisma.organization.update({
+    where: { id: BigInt(user.orgId) },
+    data: { customUnits: { set: next } },
+    select: { customUnits: true },
+  });
+  return updated.customUnits;
+}
+
 module.exports = {
   getById,
   update,
@@ -180,5 +227,8 @@ module.exports = {
   listCustomFieldDefinitions,
   createCustomFieldDefinition,
   updateCustomFieldDefinition,
-  deleteCustomFieldDefinition
+  deleteCustomFieldDefinition,
+  getCustomUnits,
+  addCustomUnit,
+  deleteCustomUnit,
 };

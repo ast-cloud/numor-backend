@@ -95,6 +95,33 @@ async function deleteCustomField(req, res) {
   }
 }
 
+async function listCustomUnits(req, res) {
+  try {
+    const data = await orgService.getCustomUnits(req.user);
+    return res.json({ success: true, data });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+async function addCustomUnit(req, res) {
+  try {
+    const data = await orgService.addCustomUnit(req.user, req.body.unit);
+    return res.status(201).json({ success: true, data });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+}
+
+async function deleteCustomUnit(req, res) {
+  try {
+    const data = await orgService.deleteCustomUnit(req.user, req.params.unit);
+    return res.json({ success: true, data });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   getMyOrganization,
   updateMyOrganization,
@@ -104,5 +131,8 @@ module.exports = {
   listCustomFields,
   createCustomField,
   updateCustomField,
-  deleteCustomField
+  deleteCustomField,
+  listCustomUnits,
+  addCustomUnit,
+  deleteCustomUnit,
 };
