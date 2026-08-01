@@ -6,7 +6,7 @@ async function chatStream(req, res) {
   const start = Date.now();
 
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const { message } = req.body;
 
     await handleChatStream(user, message, res);
@@ -40,7 +40,7 @@ async function chat(req, res) {
   const start = Date.now();
 
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const { message } = req.body;
 
     const reply = await handleChat(user, message);
@@ -73,7 +73,7 @@ async function chat(req, res) {
 
 async function chatHistory(req, res) {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const message = await getChatHistory(user);
     // console.log("Fetched chat history:", message);
     return res.json({
@@ -92,7 +92,7 @@ async function chatHistory(req, res) {
 
 async function deleteHistory(req, res) {
   try {
-    const result = await deleteChatHistory(req.user);
+    const result = await deleteChatHistory(req.loggedInUser);
 
     return res.json({
       success: true,

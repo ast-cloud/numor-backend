@@ -12,7 +12,7 @@ exports.listCAs = async (req, res, next) => {
 
 exports.getCAProfile = async (req, res, next) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const profile = await caProfileService.getByUserId(user);
     res.json({ success: true, data: profile });
   } catch (err) {
@@ -22,7 +22,7 @@ exports.getCAProfile = async (req, res, next) => {
 
 exports.createCAProfile = async (req, res, next) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const payload = req.body;
     const profile = await caProfileService.createProfile(user, payload);
     res.status(201).json({ success: true, data: profile });
@@ -33,7 +33,7 @@ exports.createCAProfile = async (req, res, next) => {
 
 exports.updateCAProfile = async (req, res, next) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const payload = req.body;
     const profile = await caProfileService.updateProfile(
       user, payload
@@ -46,7 +46,7 @@ exports.updateCAProfile = async (req, res, next) => {
 
 exports.deleteCAProfile = async (req, res, next) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     await caProfileService.deleteProfile(user);
     res.json({ success: true, message: 'CA profile deleted' });
   } catch (err) {
@@ -56,7 +56,7 @@ exports.deleteCAProfile = async (req, res, next) => {
 
 exports.uploadDocument = async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const file = req.file;
     const { type, description } = req.body;
 
@@ -82,7 +82,7 @@ exports.uploadDocument = async (req, res) => {
 exports.getDocuments = async (req, res) => {
   try {
 
-    const user = req.user;
+    const user = req.loggedInUser;
 
     const data = await caProfileService.getDocuments(user);
 
@@ -100,7 +100,7 @@ exports.deleteDocument = async (req, res, next) => {
   try {
     const { fileKey } = req.query;
     const result = await caProfileService.deleteDocument(
-      req.user,
+      req.loggedInUser,
       fileKey
     );
 
@@ -116,7 +116,7 @@ exports.deleteDocument = async (req, res, next) => {
 
 exports.submitPendingProfile = async (req, res, next) => {
   try {
-    const result = await caProfileService.submitPendingProfile(req.user);
+    const result = await caProfileService.submitPendingProfile(req.loggedInUser);
 
     res.json({
       success: true,
@@ -131,7 +131,7 @@ exports.submitPendingProfile = async (req, res, next) => {
 
 // exports.uploadCertificate = async (req, res, next) => {
 //     try {
-//       const user = req.user;
+//       const user = req.loggedInUser;
 //       const file = req.file;
 //       const certUrl = await caProfileService.uploadCertificate(user, file);
 //       res.json({ success: true, data: { certUrl } });
@@ -142,7 +142,7 @@ exports.submitPendingProfile = async (req, res, next) => {
 
 // exports.uploadIdProof = async (req, res, next) => {
 //   try{
-//     const user = req.user;
+//     const user = req.loggedInUser;
 //     const file = req.file;
 //     const idProofUrl = await caProfileService.uploadIdProof(user, file);
 //     res.json({ success: true, data: { idProofUrl } });  

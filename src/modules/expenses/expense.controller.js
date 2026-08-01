@@ -35,7 +35,7 @@ exports.previewOCR = async function (req, res) {
 exports.confirmExpense = async function (req, res) {
   try {
     const payload = req.body;
-    const user = req.user;
+    const user = req.loggedInUser;
     const expense = await expenseService.saveExpenseFromPreview(user, payload);
     res.json({ success: true, expense });
   } catch (err) {
@@ -50,7 +50,7 @@ exports.confirmExpense = async function (req, res) {
 exports.listExpenses = async function (req, res) {
   try {
     const { limit, page, startDate, endDate } = req.query;
-    const user = req.user;
+    const user = req.loggedInUser;
     const expenses = await expenseService.listExpenses(user, Number(page), Number(limit), startDate, endDate);
     res.json({ success: true, data: expenses });
   } catch (err) {
@@ -62,7 +62,7 @@ exports.listExpenses = async function (req, res) {
 
 exports.getExpense = async (req, res) => {
   try {
-    const expense = await expenseService.getExpense(req.user, req.params.id);
+    const expense = await expenseService.getExpense(req.loggedInUser, req.params.id);
     return res.json({
       success: true,
       data: expense
@@ -90,7 +90,7 @@ exports.listExpenseItems = async function (req, res) {
 exports.updateExpense = async function (req, res) {
   try {
     const payload = req.body;
-    const user = req.user;
+    const user = req.loggedInUser;
     const id = BigInt(req.params.id);
 
     const expense = await expenseService.updateExpense(user, id, payload);
@@ -110,7 +110,7 @@ exports.updateExpense = async function (req, res) {
 
 exports.deleteExpense = async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const id = req.params.id;
 
     const result = await expenseService.deleteExpense(user, id);
@@ -131,7 +131,7 @@ exports.deleteExpense = async (req, res) => {
 exports.getExpenseReceipt = async (req, res) => {
   try {
     const result = await expenseService.getSignedUrl(
-      req.user,
+      req.loggedInUser,
       req.params.id
     );
 
@@ -159,7 +159,7 @@ exports.exportExpenses = async (req, res) => {
     const includeItemsBool = includeItems === "true";
 
     const file = await expenseService.exportExpenses(
-      req.user,
+      req.loggedInUser,
       startDate,
       endDate,
       format,

@@ -16,7 +16,7 @@ exports.previewInvoice = async function (req, res) {
 exports.confirmAndSaveInvoice = async function (req, res) {
   try {
     const payload = req.body;
-    const user = req.user; // from auth middleware
+    const user = req.loggedInUser; // from auth middleware
 
     const invoice = await invoiceService.saveInvoiceFromPreview(user, payload);
 
@@ -33,7 +33,7 @@ exports.confirmAndSaveInvoice = async function (req, res) {
 exports.listInvoices = async function (req, res) {
   try {
     const { page, limit, startDate, endDate } = req.query;
-    const user = req.user;
+    const user = req.loggedInUser;
     const invoices = await invoiceService.listInvoices(user, Number(page), Number(limit), startDate, endDate);
     res.json({ success: true, data: invoices });
   } catch (err) {
@@ -56,7 +56,7 @@ exports.listInvoiceProduct = async function (req, res) {
 exports.confirmAndUpdateInvoice = async function (req, res) {
   try {
     const payload = req.body;
-    const user = req.user; // from auth middleware
+    const user = req.loggedInUser; // from auth middleware
     const id = BigInt(req.params.id);
 
     const invoice = await invoiceService.updateInvoice(user, id, payload);
@@ -76,7 +76,7 @@ exports.confirmAndUpdateInvoice = async function (req, res) {
 
 exports.confirmAndCreateInvoice = async function (req, res) {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const payload = req.body;
 
     const sendEmail = req.query.sendEmail === "true";
@@ -98,7 +98,7 @@ exports.confirmAndCreateInvoice = async function (req, res) {
 
 exports.getInvoice = async (req, res) => {
   try {
-    const invoice = await invoiceService.getInvoice(req.user, req.params.id);
+    const invoice = await invoiceService.getInvoice(req.loggedInUser, req.params.id);
     return res.json({
       success: true,
       data: invoice
@@ -115,7 +115,7 @@ exports.getInvoice = async (req, res) => {
 exports.getInvoicePdf = async (req, res) => {
   try {
     const result = await invoiceService.getSignedPdfUrl(
-      req.user,
+      req.loggedInUser,
       req.params.id
     );
 
@@ -144,14 +144,14 @@ exports.streamInvoicePdfStatus = (req, res) => {
   invoiceService.openStream({
     req,
     res,
-    userId: req.user.userId,
+    userId: req.loggedInUser.userId,
     invoiceId: req.params.id
   });
 };
 
 exports.deleteInvoice = async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const id = req.params.id;
 
     const result = await invoiceService.deleteInvoice(user, id);
@@ -176,7 +176,7 @@ exports.exportInvoices = async (req, res) => {
     const includeItemsBool = includeItems === "true";
 
     const file = await invoiceService.exportInvoices(
-      req.user,
+      req.loggedInUser,
       startDate,
       endDate,
       format,

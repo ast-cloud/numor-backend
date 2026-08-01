@@ -2,7 +2,7 @@ const clientService = require('./client.service');
 
 exports.createClient = async function (req, res) {
     try{
-        const user = req.user; // from auth middleware
+        const user = req.loggedInUser; // from auth middleware
         const data = req.body;
 
         const client = await clientService.createClient(user, data);
@@ -17,7 +17,7 @@ exports.createClient = async function (req, res) {
 
 exports.listClients = async function (req, res) {
     try{
-        const user = req.user; //breakpoint here
+        const user = req.loggedInUser; //breakpoint here
         const {page = 1, limit = 10} = req.query;
         const clients = await clientService.listClient(user, Number(page), Number(limit));
 
@@ -34,7 +34,7 @@ exports.listClients = async function (req, res) {
 
 exports.getClient = async function (req, res) {
     try{
-        const user = req.user; // from auth middleware
+        const user = req.loggedInUser; // from auth middleware
         const clientId = req.params.id; // from URL parameter
 
         const client = await clientService.getClientById(user, clientId);    
@@ -48,7 +48,7 @@ exports.getClient = async function (req, res) {
 exports.updateClient = async (req, res) => {
   try {
     const result = await clientService.updateClient({
-      user: req.user,
+      user: req.loggedInUser,
       clientId: req.params.clientId,
       data: req.body,
     });
@@ -75,7 +75,7 @@ exports.updateClient = async (req, res) => {
 exports.deleteClient = async (req, res) => {
   try {
     const result = await clientService.deleteClient({
-      user: req.user,
+      user: req.loggedInUser,
       clientId: req.params.clientId
     });
 

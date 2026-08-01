@@ -2,7 +2,7 @@ const service = require('./user.service');
 
 exports.createUser = async (req, res, next) => {
     try{
-        const result = await service.createUser(req.user, req.body);
+        const result = await service.createUser(req.loggedInUser, req.body);
         res.status(201).json({success: true, data: result});
     }
     catch(err){
@@ -13,7 +13,7 @@ exports.createUser = async (req, res, next) => {
 exports.listUsers = async (req, res, next) => {
     try {
         const {page, limit} = req.query;
-        const users = await service.listUsers(req.user, Number(page), Number(limit));
+        const users = await service.listUsers(req.loggedInUser, Number(page), Number(limit));
         res.json({ success: true, data: users });
     } catch (err) {
         next(err);
@@ -22,7 +22,7 @@ exports.listUsers = async (req, res, next) => {
 
 exports.getUser = async (req, res, next) => {
     try {
-        const user = await service.getUser(req.user, req.params.id);
+        const user = await service.getUser(req.loggedInUser, req.params.id);
         res.json({ success: true, data: user });
     } catch (err) {
         next(err);
@@ -31,7 +31,7 @@ exports.getUser = async (req, res, next) => {
 
 exports.updateUser = async (req, res, next) => {
     try {
-        const user = req.user;
+        const user = req.loggedInUser;
         const userresponse = await service.updateUser(user, req.body);
         res.json({ success: true, data: userresponse });
     } catch (err) {
@@ -42,7 +42,7 @@ exports.updateUser = async (req, res, next) => {
 exports.updateUserStatus = async (req, res, next) => {
     try {
         const user = await service.updateUserStatus(
-            req.user,
+            req.loggedInUser,
             req.params.id,
             req.body.isActive
         );
@@ -53,9 +53,9 @@ exports.updateUserStatus = async (req, res, next) => {
 };
 
 exports.getCurrentUser = async (req, res, next) => {
-    console.log('Fetching current user for:', req.user);
+    console.log('Fetching current user for:', req.loggedInUser);
     try {
-        const user = await service.getUser(req.user, req.user.userId);
+        const user = await service.getUser(req.loggedInUser, req.loggedInUser.userId);
         res.json({ success: true, data: user });
     } catch (err) {
         next(err);
@@ -65,7 +65,7 @@ exports.getCurrentUser = async (req, res, next) => {
 
 exports.uploadProfilePhoto = async (req, res, next) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const file = req.file;
     const profilePhotoUrl = await service.uploadProfilePhoto(user, file);
     res.json({ success: true, profilePhotoUrl });
@@ -76,7 +76,7 @@ exports.uploadProfilePhoto = async (req, res, next) => {
 
 exports.getProfilePhoto = async (req, res, next) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const photoUrl = await service.getProfilePhoto(user);
     res.json({ success: true, photoUrl });
   } catch (err) {
@@ -86,7 +86,7 @@ exports.getProfilePhoto = async (req, res, next) => {
 
 exports.deleteProfilePhoto = async (req, res, next) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     await service.deleteProfilePhoto(user);
     res.json({ success: true, message: "Profile photo deleted successfully" });
   } catch (err) {
@@ -114,7 +114,7 @@ exports.inviteNewUser = async (req, res, next) => {
 
 exports.invitations = async (req, res, next) => {
   try {
-    const invitations = await service.listInvitations(req.user.orgId);
+    const invitations = await service.listInvitations(req.loggedInUser.orgId);
 
     res.json({
       success: true,
@@ -127,7 +127,7 @@ exports.invitations = async (req, res, next) => {
 
 exports.subAccounts = async (req, res, next) => {
   try {
-    const users = await service.listSubAccounts(req.user.orgId);
+    const users = await service.listSubAccounts(req.loggedInUser.orgId);
 
     res.json({
       success: true,
@@ -141,7 +141,7 @@ exports.subAccounts = async (req, res, next) => {
 exports.updatePermissions = async (req, res, next) => {
   try {
     const updatedUser = await service.updateSubAccountPermissions(
-      req.user,
+      req.loggedInUser,
       req.params.userId,
       req.body.permissions
     );
@@ -159,7 +159,7 @@ exports.updatePermissions = async (req, res, next) => {
 exports.deleteSubAccount = async (req, res, next) => {
   try {
     const result = await service.deleteSubAccount(
-      req.user,
+      req.loggedInUser,
       req.params.userId
     );
 
@@ -175,7 +175,7 @@ exports.deleteSubAccount = async (req, res, next) => {
 
 exports.saveWidgets = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.loggedInUser.userId;
     const { widgets } = req.body;
 
     const data = await service.saveWidgets(userId, widgets);
@@ -192,7 +192,7 @@ exports.saveWidgets = async (req, res, next) => {
 
 exports.deleteWidget = async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    const userId = req.loggedInUser.userId;
     const widgetName = req.query.widgetName || req.query.name || req.query.widgetId;
 
     console.log('Deleting widget for user:', userId, 'Widget name:', widgetName);

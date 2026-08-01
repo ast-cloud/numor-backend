@@ -12,7 +12,7 @@ const { success } = require('zod');
 
 //     try{
 //         const decode = jwt.verify(token, process.env.JWT_SECRET);
-//         req.user = decode; // { userId, orgId, userType }
+//         req.loggedInUser = decode; // { userId, orgId, userType }
 //         next();
 //     }
 //     catch(err){
@@ -45,7 +45,7 @@ function authMiddleware(req, res, next) {
 
     try{
         const decode = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decode;
+        req.loggedInUser = decode;
         next();
     }
     catch(err){

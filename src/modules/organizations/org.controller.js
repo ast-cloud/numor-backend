@@ -1,7 +1,7 @@
 const orgService = require("./org.service");
 
 async function getMyOrganization(req, res) {
-  const org = await orgService.getById(req.user.orgId);
+  const org = await orgService.getById(req.loggedInUser.orgId);
 
   res.json({
     success: true,
@@ -11,7 +11,7 @@ async function getMyOrganization(req, res) {
 
 async function updateMyOrganization(req, res) {
   const org = await orgService.update(
-    req.user.orgId,
+    req.loggedInUser.orgId,
     req.body
   );
 
@@ -24,7 +24,7 @@ async function updateMyOrganization(req, res) {
 
 async function uploadLogo(req, res, next) {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const file = req.file;
     const logoUrl = await orgService.uploadLogo(user, file);
     res.json({ success: true, logoUrl });
@@ -35,7 +35,7 @@ async function uploadLogo(req, res, next) {
 
 async function getLogo(req, res, next) {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const logoUrl = await orgService.getLogo(user);
     res.json({ success: true, logoUrl });
   } catch (err) {
@@ -45,7 +45,7 @@ async function getLogo(req, res, next) {
 
 async function deleteLogo(req, res, next) {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     await orgService.deleteLogo(user);
     res.json({ success: true, message: "Logo deleted successfully" });
   } catch (err) {
@@ -55,7 +55,7 @@ async function deleteLogo(req, res, next) {
 
 async function listCustomFields(req, res) {
   try {
-    const data = await orgService.listCustomFieldDefinitions(req.user);
+    const data = await orgService.listCustomFieldDefinitions(req.loggedInUser);
     return res.json({ success: true, data });
   } catch (err) {
     console.error('Error in listCustomFields:', err);
@@ -65,7 +65,7 @@ async function listCustomFields(req, res) {
 
 async function createCustomField(req, res) {
   try {
-    const data = await orgService.createCustomFieldDefinition(req.user, req.body);
+    const data = await orgService.createCustomFieldDefinition(req.loggedInUser, req.body);
     return res.status(201).json({ success: true, data });
   } catch (err) {
     console.error('Error in createCustomField:', err);
@@ -76,7 +76,7 @@ async function createCustomField(req, res) {
 async function updateCustomField(req, res) {
   try {
     const id = req.params.id;
-    const data = await orgService.updateCustomFieldDefinition(req.user, id, req.body);
+    const data = await orgService.updateCustomFieldDefinition(req.loggedInUser, id, req.body);
     return res.json({ success: true, data });
   } catch (err) {
     console.error('Error in updateCustomField:', err);
@@ -87,7 +87,7 @@ async function updateCustomField(req, res) {
 async function deleteCustomField(req, res) {
   try {
     const id = req.params.id;
-    await orgService.deleteCustomFieldDefinition(req.user, id);
+    await orgService.deleteCustomFieldDefinition(req.loggedInUser, id);
     return res.json({ success: true, message: "Custom field deleted successfully" });
   } catch (err) {
     console.error('Error in deleteCustomField:', err);
@@ -97,7 +97,7 @@ async function deleteCustomField(req, res) {
 
 async function listCustomUnitsInvoice(req, res) {
   try {
-    const data = await orgService.getCustomUnitsInvoice(req.user);
+    const data = await orgService.getCustomUnitsInvoice(req.loggedInUser);
     return res.json({ success: true, data });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -106,7 +106,7 @@ async function listCustomUnitsInvoice(req, res) {
 
 async function addCustomUnitInvoice(req, res) {
   try {
-    const data = await orgService.addCustomUnitInvoice(req.user, req.body.unit);
+    const data = await orgService.addCustomUnitInvoice(req.loggedInUser, req.body.unit);
     return res.status(201).json({ success: true, data });
   } catch (err) {
     return res.status(400).json({ success: false, message: err.message });
@@ -115,7 +115,7 @@ async function addCustomUnitInvoice(req, res) {
 
 async function deleteCustomUnitInvoice(req, res) {
   try {
-    const data = await orgService.deleteCustomUnitInvoice(req.user, req.params.unit);
+    const data = await orgService.deleteCustomUnitInvoice(req.loggedInUser, req.params.unit);
     return res.json({ success: true, data });
   } catch (err) {
     return res.status(400).json({ success: false, message: err.message });

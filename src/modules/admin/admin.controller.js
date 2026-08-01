@@ -140,7 +140,7 @@ exports.getMarketplaceCAs = async (req, res, next) => {
 exports.getProfileComparison = async (req, res, next) => {
   try {
     const caId = req.params.caId;
-    const result = await adminService.getProfileComparison(req.user, caId);
+    const result = await adminService.getProfileComparison(req.loggedInUser, caId);
 
     res.json({
       success: true,

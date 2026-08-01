@@ -4,7 +4,7 @@ const { google } = require("googleapis");
 
 exports.createSlots = async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const data = req.body;
 
     const slots = await service.createOrUpdateSlots(user, data);
@@ -24,7 +24,7 @@ exports.getSlots = async (req, res) => {
     const requestedCaProfileId = req.params.caProfileId || req.query.caProfileId;
     const { startDate, endDate } = req.query;
     const caProfileId = await service.resolveCaProfileIdForSlots(
-      req.user,
+      req.loggedInUser,
       requestedCaProfileId
     );
 
@@ -46,7 +46,7 @@ exports.getSlots = async (req, res) => {
 
 exports.createBooking = async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.loggedInUser;
     const data = req.body;
 
     const booking = await service.createBooking(user, data);
@@ -68,7 +68,7 @@ exports.getBookingByCode = async (req, res, next) => {
 
     const booking = await service.getByBookingCode(
       bookingCode,
-      req.user
+      req.loggedInUser
     );
 
     res.json({
@@ -82,7 +82,7 @@ exports.getBookingByCode = async (req, res, next) => {
 
 exports.listMyBookings = async (req, res, next) => {
   try {
-    user = req.user;
+    user = req.loggedInUser;
     const bookings = await service.listUserBookings(user);
 
     res.json({
@@ -96,7 +96,7 @@ exports.listMyBookings = async (req, res, next) => {
 
 exports.listCABookings = async (req, res, next) => {
   try {
-    const CA = req.user;
+    const CA = req.loggedInUser;
     const bookings = await service.listCABookings(CA);
 
     res.json({

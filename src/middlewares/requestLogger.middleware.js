@@ -11,7 +11,7 @@ module.exports = (req, res, next) => {
       url: req.originalUrl,
       status: res.statusCode,
       durationMs: duration,
-      userId: req.user?.userId,
+      userId: req.loggedInUser?.userId,
     });
   });
 

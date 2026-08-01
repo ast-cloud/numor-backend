@@ -1,7 +1,7 @@
 const kpi = require('../dashboard/dashboard.service');
 
 exports.userRevenue = async (req, res)=>{
-    const user = req.user;
+    const user = req.loggedInUser;
     const {startDate, endDate} = req.query;
 
     const data = await kpi.revenueByCustomer(user.userId, startDate, endDate);
@@ -10,7 +10,7 @@ exports.userRevenue = async (req, res)=>{
 }
 
 exports.userExpense = async (req, res)=>{
-    const user = req.user;
+    const user = req.loggedInUser;
     const {startDate, endDate} = req.query;
 
     const data = await kpi.expenseByUser(user.userId, startDate, endDate);
@@ -18,7 +18,7 @@ exports.userExpense = async (req, res)=>{
 }
 
 exports.dashboardSummary = async (req, res) => {
-    const user = req.user;
+    const user = req.loggedInUser;
     const {startDate, endDate} = req.query;
 
     const data = await kpi.dashboardSummary(user.userId, startDate, endDate);
@@ -26,7 +26,7 @@ exports.dashboardSummary = async (req, res) => {
 }
 
 exports.revenueExpenseTrend = async (req, res) => {
-    const user = req.user;
+    const user = req.loggedInUser;
     const {startDate, endDate} = req.query;
 
     const data = await kpi.revenueExpenseTrend(user.userId, startDate, endDate);

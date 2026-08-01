@@ -71,7 +71,7 @@ async function logout(req, res) {
   //   // domain: ".numor.app",
   // });
   try {
-    const result = await deleteChatHistory(req.user);
+    const result = await deleteChatHistory(req.loggedInUser);
 
     res.json({
       success: true,

@@ -6,7 +6,7 @@ const caReviewService = require('./caReview.service');
 exports.createReview = async (req, res, next) => {
   try {
     const review = await caReviewService.createReview(
-      req.user,
+      req.loggedInUser,
       req.body
     );
 

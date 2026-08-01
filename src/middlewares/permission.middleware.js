@@ -7,12 +7,12 @@ async function getAuthorizationUser(req) {
     return req.authorizationUser;
   }
 
-  if (!req.user?.userId) {
+  if (!req.loggedInUser?.userId) {
     return null;
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: BigInt(req.user.userId) },
+    where: { id: BigInt(req.loggedInUser.userId) },
     select: {
       id: true,
       role: true,
@@ -36,7 +36,7 @@ function deny(res, message = 'Permission denied') {
 function requirePermission(resource, action) {
   return async (req, res, next) => {
     try {
-      if (FULL_ACCESS_ROLES.has(req.user?.role)) {
+      if (FULL_ACCESS_ROLES.has(req.loggedInUser?.role)) {
         return next();
       }
 
@@ -69,7 +69,7 @@ function requirePermission(resource, action) {
 function requireOrgOwner(req, res, next) {
   Promise.resolve()
     .then(async () => {
-      if (req.user?.role === 'ADMIN') {
+      if (req.loggedInUser?.role === 'ADMIN') {
         return next();
       }
 
