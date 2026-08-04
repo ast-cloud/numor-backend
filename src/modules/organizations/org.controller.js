@@ -122,6 +122,25 @@ async function deleteCustomUnitInvoice(req, res) {
   }
 }
 
+async function getInvoiceUnits(req, res) {
+  try {
+    const data = await orgService.getInvoiceUnits(req.loggedInUser);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('Error in getInvoiceUnits:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+async function setActiveUnitsInvoice(req, res) {
+  try {
+    const data = await orgService.setActiveUnitsInvoice(req.loggedInUser, req.body.units);
+    return res.json({ success: true, data });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+}
+
 module.exports = {
   getMyOrganization,
   updateMyOrganization,
@@ -135,4 +154,6 @@ module.exports = {
   listCustomUnitsInvoice,
   addCustomUnitInvoice,
   deleteCustomUnitInvoice,
+  getInvoiceUnits,
+  setActiveUnitsInvoice,
 };

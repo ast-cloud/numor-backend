@@ -6,6 +6,7 @@ const crypto = require("crypto");
 const { sendEmail } = require("../../services/email.service");
 const redis = require("../../redis/cache");
 const { is } = require('zod/v4/locales');
+const { SYSTEM_INVOICE_UNITS } = require("../../utils/constants");
 
 async function registerUser(data) {
     const sessionId = crypto.randomUUID();
@@ -92,7 +93,8 @@ async function registerUser(data) {
         const org = await tx.organization.create({
             data: {
                 name: `${user.name}'s Organization`,
-                email: user.email
+                email: user.email,
+                activeUnitsInvoice: SYSTEM_INVOICE_UNITS
             }
         });
 
@@ -251,6 +253,7 @@ async function googleAuth(code, user_type_for_signup) {
             data: {
                 name: `${name}'s Organization`,
                 email,
+                activeUnitsInvoice: SYSTEM_INVOICE_UNITS,
             },
         });
 
@@ -376,6 +379,7 @@ async function linkedinAuth(code, user_type_for_signup) {
             data: {
                 name: `${name}'s Organization`,
                 email,
+                activeUnitsInvoice: SYSTEM_INVOICE_UNITS,
             },
         });
 

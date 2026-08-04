@@ -32,6 +32,7 @@ model Organization {
   customFieldDefinitions CustomFieldDefinition[]
   customFieldValues      InvoiceCustomFieldValue[]
   customUnitsInvoice     String[]                  @default([])
+  activeUnitsInvoice     String[]                  @default([])
 
   @@map("organizations")
 }

@@ -19,4 +19,7 @@ router.get('/custom-units',          auth, requirePermission("organizationSettin
 router.post('/custom-units',         auth, requirePermission("organizationSettings", "write"), orgController.addCustomUnitInvoice);
 router.delete('/custom-units/:unit', auth, requirePermission("organizationSettings", "write"), orgController.deleteCustomUnitInvoice);
 
+router.get('/invoice-units',        auth, requirePermission("organizationSettings", "read"),  orgController.getInvoiceUnits);
+router.put('/invoice-units/active', auth, requirePermission("organizationSettings", "write"), orgController.setActiveUnitsInvoice);
+
 module.exports = router;

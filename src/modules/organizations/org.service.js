@@ -1,5 +1,6 @@
 const prisma = require("../../config/database");
 const storageService = require('../../storage/storage.service');
+const { SYSTEM_INVOICE_UNITS } = require("../../utils/constants");
 
 async function getById(orgId) {
   return prisma.organization.findUnique({
@@ -189,7 +190,8 @@ async function addCustomUnitInvoice(user, unit) {
     select: { customUnitsInvoice: true },
   });
   const current = org?.customUnitsInvoice ?? [];
-  if (current.map(u => u.toLowerCase()).includes(trimmed.toLowerCase())) {
+  const allExisting = [...SYSTEM_INVOICE_UNITS, ...current];
+  if (allExisting.map(u => u.toLowerCase()).includes(trimmed.toLowerCase())) {
     throw new Error("This unit already exists.");
   }
 
@@ -204,18 +206,69 @@ async function addCustomUnitInvoice(user, unit) {
 async function deleteCustomUnitInvoice(user, unit) {
   const org = await prisma.organization.findUnique({
     where: { id: BigInt(user.orgId) },
-    select: { customUnitsInvoice: true },
+    select: { customUnitsInvoice: true, activeUnitsInvoice: true },
   });
   const current = org?.customUnitsInvoice ?? [];
-  const next = current.filter(u => u !== unit);
-  if (next.length === current.length) throw new Error("Unit not found.");
+  const nextCustom = current.filter(u => u !== unit);
+  if (nextCustom.length === current.length) throw new Error("Unit not found.");
+
+  const currentActive = org?.activeUnitsInvoice?.length ? org.activeUnitsInvoice : SYSTEM_INVOICE_UNITS;
+  const nextActive = currentActive.filter(u => u !== unit);
+  if (nextActive.length === 0) {
+    throw new Error("Cannot delete this unit: it is your only active unit. Activate another unit first.");
+  }
 
   const updated = await prisma.organization.update({
     where: { id: BigInt(user.orgId) },
-    data: { customUnitsInvoice: { set: next } },
+    data: {
+      customUnitsInvoice: { set: nextCustom },
+      activeUnitsInvoice: { set: nextActive },
+    },
     select: { customUnitsInvoice: true },
   });
   return updated.customUnitsInvoice;
+}
+
+async function getInvoiceUnits(user) {
+  const org = await prisma.organization.findUnique({
+    where: { id: BigInt(user.orgId) },
+    select: { customUnitsInvoice: true, activeUnitsInvoice: true },
+  });
+  const customUnits = org?.customUnitsInvoice ?? [];
+  const activeUnits = org?.activeUnitsInvoice?.length ? org.activeUnitsInvoice : SYSTEM_INVOICE_UNITS;
+  return {
+    systemUnits: SYSTEM_INVOICE_UNITS,
+    customUnits,
+    activeUnits,
+  };
+}
+
+async function setActiveUnitsInvoice(user, units) {
+  if (!Array.isArray(units) || units.length === 0) {
+    throw new Error("At least one active unit is required.");
+  }
+
+  const org = await prisma.organization.findUnique({
+    where: { id: BigInt(user.orgId) },
+    select: { customUnitsInvoice: true },
+  });
+  const allValidUnits = new Set([...SYSTEM_INVOICE_UNITS, ...(org?.customUnitsInvoice ?? [])]);
+
+  const deduped = [...new Set(units.map(u => (u ?? "").trim()).filter(Boolean))];
+  if (deduped.length === 0) {
+    throw new Error("At least one active unit is required.");
+  }
+  const invalid = deduped.filter(u => !allValidUnits.has(u));
+  if (invalid.length > 0) {
+    throw new Error(`Unknown unit(s): ${invalid.join(", ")}`);
+  }
+
+  const updated = await prisma.organization.update({
+    where: { id: BigInt(user.orgId) },
+    data: { activeUnitsInvoice: { set: deduped } },
+    select: { activeUnitsInvoice: true },
+  });
+  return updated.activeUnitsInvoice;
 }
 
 module.exports = {
@@ -231,4 +284,6 @@ module.exports = {
   getCustomUnitsInvoice,
   addCustomUnitInvoice,
   deleteCustomUnitInvoice,
+  getInvoiceUnits,
+  setActiveUnitsInvoice,
 };
