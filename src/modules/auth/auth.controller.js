@@ -2,6 +2,7 @@ const authService = require("./auth.service");
 const { deleteChatHistory } = require("../ai/chatbot/chat.service")
 
 async function register(req, res) {
+  console.log("New registration attempt:", req.body);
   try {
     const { token, user } = await authService.registerUser(req.body);
 
@@ -32,9 +33,9 @@ async function register(req, res) {
 }
 
 async function login(req, res) {
+  console.log("New login attempt:", req.body);
   try {
-    console.log("New login attempt:", req.body);
-    
+
     const { email, password } = req.body;
 
     const { token, safeUser } = await authService.loginUser(email, password);
@@ -66,6 +67,7 @@ async function login(req, res) {
 }
 
 async function logout(req, res) {
+  console.log("Logout attempt:", req.loggedInUser);
   // res.clearCookie("access_token", {
   //   httpOnly: true,
   //   secure: process.env.NODE_ENV === "production",
@@ -90,6 +92,7 @@ async function logout(req, res) {
 }
 
 async function googleLogin(req, res, next) {
+  console.log("New Google login attempt:", req.body);
   try {
     const { code, user_type_for_signup } = req.body;
     const { token, user } = await authService.googleAuth(code, user_type_for_signup);
@@ -117,6 +120,7 @@ async function googleLogin(req, res, next) {
 
 
 async function linkedinLogin(req, res, next) {
+  console.log("New LinkedIn login attempt:", req.body);
   try {
     const { code, user_type_for_signup } = req.body;
 
@@ -139,6 +143,7 @@ async function linkedinLogin(req, res, next) {
 }
 
 async function googleLocalStorageBasedLogin(req, res, next) {
+  console.log("New Google login attempt:", req.query);
   const { state, code } = req.query;
   let user_type_for_signup = undefined;
 
@@ -186,6 +191,7 @@ async function googleLocalStorageBasedLogin(req, res, next) {
 }
 
 async function verifyEmail(req, res) {
+  console.log("Email verification attempt:", req.body);
   try {
     const { email } = req.body;
 
@@ -205,6 +211,7 @@ async function verifyEmail(req, res) {
 }
 
 async function verifyEmailOtp(req, res) {
+  console.log("Email OTP verification attempt:", req.body);
   try {
     const { email, code } = req.body;
 
@@ -224,6 +231,7 @@ async function verifyEmailOtp(req, res) {
 }
 
 async function forgetPassword(req, res) {
+  console.log("Forget password attempt:", req.body);
   try {
     const { email } = req.body;
 
@@ -243,6 +251,7 @@ async function forgetPassword(req, res) {
 }
 
 async function verifyCode(req, res) {
+  console.log("Verify reset code attempt:", req.body);
   try {
     const { email, code } = req.body;
 
@@ -261,6 +270,7 @@ async function verifyCode(req, res) {
 }
 
 async function resetUserPassword(req, res) {
+  console.log("Reset password attempt:", req.body);
   try {
     const { email, code, newPassword } = req.body;
 
@@ -279,6 +289,7 @@ async function resetUserPassword(req, res) {
 }
 
 async function verifyInvitation(req, res) {
+  console.log("Verify invitation attempt:", req.body);
   try {
     const { token } = req.body;
 
@@ -305,6 +316,7 @@ async function verifyInvitation(req, res) {
 }
 
 async function createSubAccount(req, res) {
+  console.log("Create sub-account attempt:", req.body);
   try {
     const { token, name, password, phone } = req.body;
 
