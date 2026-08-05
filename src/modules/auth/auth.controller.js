@@ -33,6 +33,8 @@ async function register(req, res) {
 
 async function login(req, res) {
   try {
+    console.log("New login attempt:", req.body);
+    
     const { email, password } = req.body;
 
     const { token, safeUser } = await authService.loginUser(email, password);
