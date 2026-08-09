@@ -3,17 +3,18 @@ const appLogger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 const dayjs = require('dayjs');
+const { RESEND_API_KEY, EMAIL_FROM } = require('../config/env');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(RESEND_API_KEY);
 
-if (!process.env.EMAIL_FROM) {
+if (!EMAIL_FROM) {
   throw new Error('EMAIL_FROM is not set in env');
 }
 
 exports.sendEmail = async ({ to, subject, html }) => {
   try {
     const response = await resend.emails.send({
-      from: process.env.EMAIL_FROM,
+      from: EMAIL_FROM,
       to,
       subject,
       html
@@ -70,7 +71,7 @@ exports.sendEmailWithAttachment = async ({to, subject, html, text, attachments})
     if (!to) throw new Error("Recipient email missing");
 
     const response = await resend.emails.send({
-      from: process.env.EMAIL_FROM,
+      from: EMAIL_FROM,
       to,
       subject,
       html,

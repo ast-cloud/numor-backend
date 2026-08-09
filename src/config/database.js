@@ -3,18 +3,18 @@
 
 // const prisma = new PrismaClient();
 // module.exports = prisma;
-require("dotenv/config");
+const { DATABASE_URL, NODE_ENV } = require("./env");
 
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
 
 const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: DATABASE_URL,
 });
 
 let prisma;
 
-if (process.env.NODE_ENV === "production") {
+if (NODE_ENV === "production") {
   // In production, create a single Prisma instance
   prisma = new PrismaClient({ adapter });
 } else {

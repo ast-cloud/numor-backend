@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const prisma = require('../../config/database');
 const storageService = require('../../storage/storage.service');
 const emailService = require('../../services/email.service');
+const { FRONTEND_URL_PRODUCTION } = require('../../config/env');
 
 exports.createUser = async (admin, data) => {
   const { email, name, userType, password } = data;
@@ -201,7 +202,7 @@ exports.inviteNewUser = async (email, organizationId, permissions) => {
       }
     });
 
-    const frontendUrl = process.env.FRONTEND_URL_PRODUCTION || 'https://numor.app';
+    const frontendUrl = FRONTEND_URL_PRODUCTION || 'https://numor.app';
     const magicLink = `${frontendUrl}/accept-invitation?token=${invitation.token}`;
 
     const subject = "You've been invited to join Numor";

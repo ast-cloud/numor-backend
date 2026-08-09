@@ -1,8 +1,9 @@
 const axios = require('axios');
+const { ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET, ZOOM_ACCOUNT_ID } = require('../config/env');
 
 const getZoomAccessToken = async () => {
   const token = Buffer.from(
-    `${process.env.ZOOM_CLIENT_ID}:${process.env.ZOOM_CLIENT_SECRET}`
+    `${ZOOM_CLIENT_ID}:${ZOOM_CLIENT_SECRET}`
   ).toString('base64');
 
   const response = await axios.post(
@@ -11,7 +12,7 @@ const getZoomAccessToken = async () => {
     {
       params: {
         grant_type: 'account_credentials',
-        account_id: process.env.ZOOM_ACCOUNT_ID
+        account_id: ZOOM_ACCOUNT_ID
       },
       headers: {
         Authorization: `Basic ${token}`

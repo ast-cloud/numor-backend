@@ -1,11 +1,12 @@
 const { Client } = require("@upstash/qstash");
+const { QSTASH_TOKEN, BASE_URL } = require("../config/env");
 
 const qstash = new Client({
-  token: process.env.QSTASH_TOKEN,
+  token: QSTASH_TOKEN,
 });
 
-const INVOICE_PROCESS_URL = `${process.env.BASE_URL}/api/qstash/process-invoice-pdf`;
-const INVOICE_FAILURE_CALLBACK_URL = `${process.env.BASE_URL}/api/qstash/invoice-pdf-failure`;
+const INVOICE_PROCESS_URL = `${BASE_URL}/api/qstash/process-invoice-pdf`;
+const INVOICE_FAILURE_CALLBACK_URL = `${BASE_URL}/api/qstash/invoice-pdf-failure`;
 
 exports.publishInvoicePdfJob = async ({ invoiceId, sendEmail }) => {
   const res = await qstash.publishJSON({

@@ -1,11 +1,12 @@
-const isCAConnectEnabled = process.env.FF_CA_CONNECT === "true";
+const { FF_CA_CORE } = require("../../../../config/env");
+const isCACoreEnabled = FF_CA_CORE === "true";
 
 const capabilityLines = [
   "- Invoices and expenses data",
   "- Financial analytics and tax summaries",
 ];
 
-if (isCAConnectEnabled) {
+if (isCACoreEnabled) {
   capabilityLines.push("- CA bookings, CA slots, and CA reviews");
 }
 

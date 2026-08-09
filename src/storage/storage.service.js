@@ -1,11 +1,12 @@
 // src/storage/storage.service.js
 const { createClient } = require('@supabase/supabase-js');
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = require('../config/env');
 
 const bucket = 'numor-invoice-pdf-storage';
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY,
   {
     auth: { autoRefreshToken: false, persistSession: false }
   }

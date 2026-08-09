@@ -1,5 +1,11 @@
 const authService = require("./auth.service");
 const { deleteChatHistory } = require("../ai/chatbot/chat.service")
+const {
+  FRONTEND_URL,
+  FRONTEND_URL_PRODUCTION,
+  FRONTEND_URL_LOVABLE,
+  FRONTEND_URL_LOCAL,
+} = require("../../config/env");
 
 async function register(req, res) {
   console.log("New registration attempt:", req.body);
@@ -166,15 +172,15 @@ async function googleLocalStorageBasedLogin(req, res, next) {
     const { token, user } = await authService.googleAuth(code, user_type_for_signup);
 
     let frontendUrl;
-    switch (process.env.FRONTEND_URL) {
+    switch (FRONTEND_URL) {
       case "PRODUCTION":
-        frontendUrl = process.env.FRONTEND_URL_PRODUCTION;
+        frontendUrl = FRONTEND_URL_PRODUCTION;
         break;
       case "LOVABLE":
-        frontendUrl = process.env.FRONTEND_URL_LOVABLE;
+        frontendUrl = FRONTEND_URL_LOVABLE;
         break;
       default:
-        frontendUrl = process.env.FRONTEND_URL_LOCAL;
+        frontendUrl = FRONTEND_URL_LOCAL;
     }
 
     const redirectPath = user?.role === "CA_USER" ? "/ca/dashboard" : "/sme/dashboard";
@@ -184,8 +190,7 @@ async function googleLocalStorageBasedLogin(req, res, next) {
   }
   catch (err) {
     console.error("Google auth failed:", err);
-    const frontendUrl = process.env.FRONTEND_URL;
-    res.redirect(`${frontendUrl}/login?error=google_auth_failed`);
+    res.redirect(`${FRONTEND_URL}/login?error=google_auth_failed`);
   }
 
 }

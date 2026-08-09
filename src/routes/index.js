@@ -27,23 +27,24 @@ router.get('/health', (req, res) => {
 });
 
 // Mount modules
-router.use('/auth', requireFeature('SME_CORE'),authRoutes);
-router.use('/user', requireFeature('SME_CORE'), userRoutes);
-router.use('/organization', requireFeature('SME_CORE'), orgRoutes);
-router.use('/invoices', requireFeature('SME_CORE'), invoiceRoutes);
-router.use('/expenses', requireFeature('SME_CORE'), expenseRoutes);
-router.use('/dashboard', requireFeature('SME_CORE'), dashboardRoutes);
-router.use('/clients', requireFeature('SME_CORE'), clientRoutes);
+router.use('/auth', authRoutes);
+router.use('/user', userRoutes);
+router.use('/organization', orgRoutes);
+router.use('/invoices', invoiceRoutes);
+router.use('/expenses', expenseRoutes);
+router.use('/dashboard', dashboardRoutes);
+router.use('/clients', clientRoutes);
 router.use('/config', configRoutes);
 // router.use('/ai', aiRoutes);
 
 // CA Connect routes
-router.use('/ca-profile', requireFeature('CA_CONNECT'), caProfile);
-router.use('/ca-reviews', requireFeature('CA_CONNECT'), caReview);
+router.use('/ca-profile', requireFeature('CA_CORE'), caProfile);
+router.use('/ca-reviews', requireFeature('CA_CORE'), caReview);
 // router.use('/ca/admin', caAdmin);
-router.use('/ca-slots', requireFeature('CA_CONNECT'), caSlots);
+router.use('/ca-slots', requireFeature('CA_CORE'), caSlots);
 router.use('/chatbot', requireFeature('AI_CHATBOT'), chatBot);
 router.use('/qstash', qstashRoute);
-router.use('/admin', requireFeature('CA_ADMIN'), adminRoutes);
+// Admin portal is excluded from feature-flag gating
+router.use('/admin', adminRoutes);
 
 module.exports = router;

@@ -1,12 +1,7 @@
-const path = require("path");
-require("dotenv").config({
-  path: path.resolve(__dirname, "../.env"),
-});
+const { DATABASE_URL } = require("../src/config/env");
 
 const { PrismaClient } = require("@prisma/client");
 const { PrismaPg } = require("@prisma/adapter-pg");
-
-const DATABASE_URL = process.env.DATABASE_URL; // Replace with your actual DATABASE_URL or set it in the environment variables
 const USER_EMAIL = "aastikyadav1997.ay@gmail.com";
 
 async function main() {

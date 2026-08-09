@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { success } = require('zod');
+const { JWT_SECRET } = require('../config/env');
 
 // function authMiddleware(req, res,next){
 //     const authHeader = req.headers.authorization;
@@ -44,7 +45,7 @@ function authMiddleware(req, res, next) {
     }
 
     try{
-        const decode = jwt.verify(token, process.env.JWT_SECRET);
+        const decode = jwt.verify(token, JWT_SECRET);
         req.loggedInUser = decode;
         next();
     }

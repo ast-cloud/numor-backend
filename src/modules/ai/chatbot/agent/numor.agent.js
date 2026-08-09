@@ -18,7 +18,8 @@ const {listAllUserExpenseItems} = require("../tools/listAllUserExpenseItems")
 const {getTotalInvoiceTax} = require("../tools/getTotalInvoiceTax")
 const {getAnalyticsForInvoice} = require("../tools/generalInvoiceAnalytics")
 const {getExpenseAnalytics} = require("../tools/generalExpenseAnalytics")
-const isCAConnectEnabled = process.env.FF_CA_CONNECT === "true";
+const { FF_CA_CORE, DATABASE_URL, RUN_LANGGRAPH_SETUP } = require("../../../../config/env");
+const isCACoreEnabled = FF_CA_CORE === "true";
 
 const enabledTools = [
   getInvoices,
@@ -32,7 +33,7 @@ const enabledTools = [
   getExpenseAnalytics,
 ];
 
-if (isCAConnectEnabled) {
+if (isCACoreEnabled) {
   enabledTools.push(
     fetchCASlots,
     fetchCAReviews,
@@ -58,7 +59,7 @@ const baseModel = new ChatGoogleGenerativeAI({
 // ---- POSTGRES CHECKPOINTER ----
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: DATABASE_URL,
   ssl: {
     rejectUnauthorized: false, 
   }
@@ -72,7 +73,7 @@ const checkpointer = new PostgresSaver(pool);
 
 // IMPORTANT: run once on app startup
 async function initCheckpointer() {
-  if (process.env.RUN_LANGGRAPH_SETUP === "true") {
+  if (RUN_LANGGRAPH_SETUP === "true") {
     await checkpointer.setup();
     console.log("✅ LangGraph tables ensured");
   }

@@ -7,6 +7,19 @@ const { sendEmail } = require("../../services/email.service");
 const redis = require("../../redis/cache");
 const { is } = require('zod/v4/locales');
 const { SYSTEM_INVOICE_UNITS } = require("../../utils/constants");
+const {
+  JWT_SECRET,
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  GOOGLE_REDIRECT_URI_CA_SIGNUP,
+  GOOGLE_REDIRECT_URI_SME_SIGNUP,
+  GOOGLE_REDIRECT_URI_LOGIN,
+  LINKEDIN_CLIENT_ID,
+  LINKEDIN_CLIENT_SECRET,
+  LINKEDIN_REDIRECT_URI_CA_SIGNUP,
+  LINKEDIN_REDIRECT_URI_SME_SIGNUP,
+  LINKEDIN_REDIRECT_URI_LOGIN,
+} = require("../../config/env");
 
 async function registerUser(data) {
     const sessionId = crypto.randomUUID();
@@ -82,7 +95,7 @@ async function registerUser(data) {
                         userType: upgradedUser.userType,
                         sessionId
                     },
-                    process.env.JWT_SECRET,
+                    JWT_SECRET,
                     { expiresIn: '7d' }
                 );
 
@@ -129,7 +142,7 @@ async function registerUser(data) {
                 userType: newUser.userType,
                 sessionId
             },
-            process.env.JWT_SECRET,
+            JWT_SECRET,
             { expiresIn: '7d' }
         );
 
@@ -185,21 +198,21 @@ async function googleAuth(code, user_type_for_signup) {
     let role = undefined;
 
     if (user_type_for_signup === "CA_USER") {
-        redirect_uri = process.env.GOOGLE_REDIRECT_URI_CA_SIGNUP;
+        redirect_uri = GOOGLE_REDIRECT_URI_CA_SIGNUP;
         role = "CA_USER";
     }
     else if (user_type_for_signup === "SME_USER") {
-        redirect_uri = process.env.GOOGLE_REDIRECT_URI_SME_SIGNUP;
+        redirect_uri = GOOGLE_REDIRECT_URI_SME_SIGNUP;
         role = "SME_USER";
     }
     else {
-        redirect_uri = process.env.GOOGLE_REDIRECT_URI_LOGIN;
+        redirect_uri = GOOGLE_REDIRECT_URI_LOGIN;
     }
 
     const params = new URLSearchParams({
         code,
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
         redirect_uri,
         grant_type: "authorization_code",
     });
@@ -293,13 +306,13 @@ async function linkedinAuth(code, user_type_for_signup) {
     let role;
 
     if (user_type_for_signup === "CA_USER") {
-        redirect_uri = process.env.LINKEDIN_REDIRECT_URI_CA_SIGNUP;
+        redirect_uri = LINKEDIN_REDIRECT_URI_CA_SIGNUP;
         role = "CA_USER";
     } else if (user_type_for_signup === "SME_USER") {
-        redirect_uri = process.env.LINKEDIN_REDIRECT_URI_SME_SIGNUP;
+        redirect_uri = LINKEDIN_REDIRECT_URI_SME_SIGNUP;
         role = "SME_USER";
     } else {
-        redirect_uri = process.env.LINKEDIN_REDIRECT_URI_LOGIN;
+        redirect_uri = LINKEDIN_REDIRECT_URI_LOGIN;
     }
 
     // Step 1: Exchange code for access token
@@ -307,8 +320,8 @@ async function linkedinAuth(code, user_type_for_signup) {
         grant_type: "authorization_code",
         code,
         redirect_uri,
-        client_id: process.env.LINKEDIN_CLIENT_ID,
-        client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+        client_id: LINKEDIN_CLIENT_ID,
+        client_secret: LINKEDIN_CLIENT_SECRET,
     });
 
     const tokenRes = await fetch(

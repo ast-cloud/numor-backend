@@ -1,5 +1,6 @@
 const service = require('./caSlot.service');
 const { google } = require("googleapis");
+const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = require("../../../config/env");
 
 
 exports.createSlots = async (req, res) => {
@@ -145,7 +146,7 @@ exports.googleCallback = async (req, res) => {
     // 🔥 2️⃣ Get user info from ID token (BEST WAY)
     const ticket = await oauth2Client.verifyIdToken({
       idToken: tokens.id_token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
@@ -175,7 +176,7 @@ exports.googleCallback = async (req, res) => {
 };
 
 const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  GOOGLE_REDIRECT_URI
 );

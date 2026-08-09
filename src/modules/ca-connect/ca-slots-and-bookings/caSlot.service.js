@@ -3,6 +3,7 @@ const dayjs = require('dayjs');
 const customParseFormat = require("dayjs/plugin/customParseFormat");
 const { google } = require("googleapis");
 const { ca } = require('zod/v4/locales');
+const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } = require("../../../config/env");
 
 exports.createOrUpdateSlots = async (user, payload) => {
     const caProfile = await prisma.cAProfile.findUnique({
@@ -109,9 +110,9 @@ const fetchGoogleCalendarEvents = async (caProfile, start, end) => {
     }
 
     const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        GOOGLE_REDIRECT_URI
     );
 
     oauth2Client.setCredentials({

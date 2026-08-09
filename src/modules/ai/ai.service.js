@@ -9,6 +9,7 @@ const buildExcelExpensePrompt = require('./prompts/expenseExcel.prompt');
 const invoicePromptVision = require('./prompts/invoice.prompt');
 const expensePromptVision = require('./prompts/expense.prompt');
 const csv = require("csv-parser");
+const { GEMINI_ENDPOINT, GEMINI_API_KEY } = require("../../config/env");
 
 // const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
 function normalizeInvoice(data) {
@@ -332,7 +333,7 @@ async function callGeminiVision(prompt, filePath) {
   });
 
   const response = await fetch(
-    `${process.env.GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
+    `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -369,7 +370,7 @@ async function callGeminiVision(prompt, filePath) {
 
 async function callGeminiText(prompt) {
   const response = await fetch(
-    `${process.env.GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
+    `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
