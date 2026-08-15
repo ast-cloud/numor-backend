@@ -38,11 +38,11 @@ router.use('/config', configRoutes);
 // router.use('/ai', aiRoutes);
 
 // CA Connect routes
-router.use('/ca-profile', requireFeature('CA_CORE'), caProfile);
-router.use('/ca-reviews', requireFeature('CA_CORE'), caReview);
+router.use('/ca-profile', requireFeature('FF_CA_CORE'), caProfile);
+router.use('/ca-reviews', requireFeature('FF_CA_CORE'), caReview);
 // router.use('/ca/admin', caAdmin);
-router.use('/ca-slots', requireFeature('CA_CORE'), caSlots);
-router.use('/chatbot', requireFeature('AI_CHATBOT'), chatBot);
+router.use('/ca-slots', requireFeature('FF_CA_CORE'), caSlots);
+router.use('/chatbot', requireFeature('FF_AI_CHATBOT'), chatBot);
 router.use('/qstash', qstashRoute);
 // Admin portal is excluded from feature-flag gating
 router.use('/admin', adminRoutes);

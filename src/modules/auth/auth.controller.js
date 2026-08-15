@@ -1,6 +1,7 @@
 const authService = require("./auth.service");
 const { deleteChatHistory } = require("../ai/chatbot/chat.service")
 const { FRONTEND_URL } = require("../../config/env");
+const { FLAGS } = require("../../config/featureFlags");
 
 async function register(req, res) {
   console.log("New registration attempt:", req.body);
@@ -166,7 +167,7 @@ async function googleLocalStorageBasedLogin(req, res, next) {
 
     const { token, user } = await authService.googleAuth(code, user_type_for_signup);
 
-    const redirectPath = user?.role === "CA_USER" ? "/ca/dashboard" : "/sme/dashboard";
+    const redirectPath = user?.role === "CA_USER" && FLAGS.FF_CA_CORE ? "/ca/dashboard" : "/sme/dashboard";
 
     // Token in hash fragment so it's never sent to servers
     res.redirect(`${FRONTEND_URL}/auth/callback#token=${token}&redirect=${redirectPath}`);

@@ -6,8 +6,8 @@ const normalizeBoolean = (value, defaultValue = false) => {
 };
 
 const FLAGS = {
-  CA_CORE: normalizeBoolean(FF_CA_CORE, false),
-  AI_CHATBOT: normalizeBoolean(FF_AI_CHATBOT, false),
+  FF_CA_CORE: normalizeBoolean(FF_CA_CORE, false),
+  FF_AI_CHATBOT: normalizeBoolean(FF_AI_CHATBOT, false),
 };
 
 function isFeatureEnabled(flagName) {
