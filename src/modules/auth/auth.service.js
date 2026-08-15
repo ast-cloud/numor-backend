@@ -11,8 +11,6 @@ const {
   JWT_SECRET,
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
-  GOOGLE_REDIRECT_URI_CA_SIGNUP,
-  GOOGLE_REDIRECT_URI_SME_SIGNUP,
   GOOGLE_REDIRECT_URI_LOGIN,
   LINKEDIN_CLIENT_ID,
   LINKEDIN_CLIENT_SECRET,
@@ -194,26 +192,20 @@ async function googleAuth(code, user_type_for_signup) {
         throw new Error("Authorization code is required");
     }
 
-    let redirect_uri;
     let role = undefined;
 
     if (user_type_for_signup === "CA_USER") {
-        redirect_uri = GOOGLE_REDIRECT_URI_CA_SIGNUP;
         role = "CA_USER";
     }
     else if (user_type_for_signup === "SME_USER") {
-        redirect_uri = GOOGLE_REDIRECT_URI_SME_SIGNUP;
         role = "SME_USER";
-    }
-    else {
-        redirect_uri = GOOGLE_REDIRECT_URI_LOGIN;
     }
 
     const params = new URLSearchParams({
         code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri,
+        redirect_uri: GOOGLE_REDIRECT_URI_LOGIN,
         grant_type: "authorization_code",
     });
 

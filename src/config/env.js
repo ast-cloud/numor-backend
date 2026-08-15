@@ -1,8 +1,28 @@
 require("dotenv").config();
 
+const ENVIRONMENT = process.env.ENVIRONMENT || "local"; // "local" | "production" | "lovable"
+
+function pickByEnvironment(variants) {
+  return variants[ENVIRONMENT] ?? variants.local;
+}
+
+const FRONTEND_URL = pickByEnvironment({
+  local: process.env.FRONTEND_URL_LOCAL,
+  production: process.env.FRONTEND_URL_PRODUCTION,
+  lovable: process.env.FRONTEND_URL_LOVABLE,
+});
+
+// Only one physical Google callback route exists (see auth.routes.js:
+// GET /api/auth/google-local-storage-based-login), so the redirect_uri only
+// ever needs to vary by which backend host is serving it, not by signup type.
+const GOOGLE_REDIRECT_URI_LOGIN = pickByEnvironment({
+  local: process.env.GOOGLE_REDIRECT_URI_LOCAL,
+  production: process.env.GOOGLE_REDIRECT_URI_PRODUCTION,
+  lovable: process.env.GOOGLE_REDIRECT_URI_PRODUCTION,
+});
+
 module.exports = {
   NODE_ENV: process.env.NODE_ENV,
-  ENVIRONMENT: process.env.ENVIRONMENT,
   PORT: process.env.PORT || 4000,
 
   DATABASE_URL: process.env.DATABASE_URL,
@@ -20,9 +40,7 @@ module.exports = {
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI,
-  GOOGLE_REDIRECT_URI_CA_SIGNUP: process.env.GOOGLE_REDIRECT_URI_CA_SIGNUP,
-  GOOGLE_REDIRECT_URI_SME_SIGNUP: process.env.GOOGLE_REDIRECT_URI_SME_SIGNUP,
-  GOOGLE_REDIRECT_URI_LOGIN: process.env.GOOGLE_REDIRECT_URI_LOGIN,
+  GOOGLE_REDIRECT_URI_LOGIN,
 
   LINKEDIN_CLIENT_ID: process.env.LINKEDIN_CLIENT_ID,
   LINKEDIN_CLIENT_SECRET: process.env.LINKEDIN_CLIENT_SECRET,
@@ -30,10 +48,8 @@ module.exports = {
   LINKEDIN_REDIRECT_URI_SME_SIGNUP: process.env.LINKEDIN_REDIRECT_URI_SME_SIGNUP,
   LINKEDIN_REDIRECT_URI_LOGIN: process.env.LINKEDIN_REDIRECT_URI_LOGIN,
 
-  FRONTEND_URL: process.env.FRONTEND_URL,
+  FRONTEND_URL,
   FRONTEND_URL_PRODUCTION: process.env.FRONTEND_URL_PRODUCTION,
-  FRONTEND_URL_LOVABLE: process.env.FRONTEND_URL_LOVABLE,
-  FRONTEND_URL_LOCAL: process.env.FRONTEND_URL_LOCAL,
 
   BASE_URL: process.env.BASE_URL,
   QSTASH_TOKEN: process.env.QSTASH_TOKEN,
