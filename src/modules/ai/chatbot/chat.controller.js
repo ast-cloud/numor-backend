@@ -73,8 +73,8 @@ async function chat(req, res) {
 
 async function chatHistory(req, res) {
   try {
-    const user = req.loggedInUser;
-    const message = await getChatHistory(user);
+    const loggedInUser = req.loggedInUser;
+    const message = await getChatHistory(loggedInUser);
     // console.log("Fetched chat history:", message);
     return res.json({
       success: true,

@@ -254,8 +254,8 @@ function ensureMarkdownFormatting(text) {
     .replace(/\n\*\s+/g, "\n- ");
 }
 
-async function getChatHistory(user) {
-  const threadId = `session-${user.sessionId}`;
+async function getChatHistory(loggedInUser) {
+  const threadId = `session-${loggedInUser.sessionId}`;
   const state = await numorAgent.getState({
     configurable: {
       thread_id: threadId,
