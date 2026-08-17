@@ -26,6 +26,35 @@ function isCsvFile(mimetype, filename) {
     );
 }
 
+const OVERDUE_ELIGIBLE_STATUSES = ["SENT", "UNPAID"];
+
+// Flips any already-fetched invoices past their due date to OVERDUE.
+// Skips the write entirely when nothing in the batch actually needs it.
+async function markOverdueInvoices(invoices) {
+    const list = Array.isArray(invoices) ? invoices : [invoices];
+    const now = new Date();
+
+    const overdueIds = list
+        .filter((inv) => inv && OVERDUE_ELIGIBLE_STATUSES.includes(inv.status) && inv.dueDate < now)
+        .map((inv) => inv.id);
+
+    if (overdueIds.length) {
+        await prisma.invoiceBill.updateMany({
+            where: { id: { in: overdueIds } },
+            data: { status: "OVERDUE" },
+        });
+
+        const overdueIdSet = new Set(overdueIds.map(String));
+        list.forEach((inv) => {
+            if (inv && overdueIdSet.has(String(inv.id))) {
+                inv.status = "OVERDUE";
+            }
+        });
+    }
+
+    return invoices;
+}
+
 function normalizeCustomFields(customFields) {
     if (!Array.isArray(customFields)) return [];
 
@@ -68,7 +97,7 @@ async function saveInvoiceCustomFields(tx, orgId, invoiceId, customFields) {
         });
 
         if (!definition) {
-            throw new Error(`Custom field '${field.name}' is not defined in settings.`);
+            throw new Error(`Custom field "${field.name}" is not defined in settings.`);
         }
 
         await tx.invoiceCustomFieldValue.create({
@@ -283,7 +312,7 @@ async function listInvoices(user, page = 1, limit = 10, startDate, endDate) {
             where.issueDate.lte = end;
         }
     }
-    return prisma.invoiceBill.findMany({
+    const invoices = await prisma.invoiceBill.findMany({
         where,
         include: {
             items: true,
@@ -299,6 +328,8 @@ async function listInvoices(user, page = 1, limit = 10, startDate, endDate) {
         take: limit,
         skip: offset,
     });
+
+    return markOverdueInvoices(invoices);
 }
 
 async function listInvoiceProducts(invoiceId, page = 1, limit = 10) {
@@ -932,6 +963,7 @@ async function getInvoice(user, id) {
             },
         }
     });
+    await markOverdueInvoices(invoice);
     return {
         ...invoice,
         customFields: (invoice.customFields ?? []).map(cf => ({
