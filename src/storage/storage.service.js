@@ -59,10 +59,31 @@ async function remove(key) {
 
   return data;
 }
-  
+
+// Batched delete for bulk teardown (see scripts/delete-organization.js).
+// Supabase caps the number of paths per remove() call, so chunk it rather
+// than firing one request per file.
+const REMOVE_CHUNK_SIZE = 100;
+
+async function removeMany(keys) {
+  const unique = [...new Set(keys.filter(Boolean))];
+  let removed = 0;
+
+  for (let i = 0; i < unique.length; i += REMOVE_CHUNK_SIZE) {
+    const chunk = unique.slice(i, i + REMOVE_CHUNK_SIZE);
+    const { data, error } = await supabase.storage.from(bucket).remove(chunk);
+
+    if (error) throw error;
+    removed += data?.length ?? 0;
+  }
+
+  return { requested: unique.length, removed };
+}
+
 module.exports = {
   upload,
   getSignedUrl,
   getSignedUrls,
-  remove
+  remove,
+  removeMany
 };

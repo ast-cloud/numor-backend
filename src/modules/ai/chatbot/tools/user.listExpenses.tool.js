@@ -11,7 +11,7 @@ const getExpenses = tool(
 
     const expenses = await prisma.expenseBill.findMany({
       where: {
-        ...(userId ? { userId: BigInt(userId) } : {}),
+        ...(userId ? { createdById: BigInt(userId) } : {}),
       },
       orderBy: { expenseDate: "desc" },
       take: limit,

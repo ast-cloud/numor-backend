@@ -16,13 +16,13 @@ const getAnalyticsForInvoice = tool(
           SELECT COALESCE(SUM((i."totalPrice" * i."taxRate") / 100), 0) as value
           FROM invoice_bill_items i
           JOIN invoice_bills b ON b.id = i."invoiceId"
-          WHERE b."customerId" = ${BigInt(userId)}
+          WHERE b."createdById" = ${BigInt(userId)}
         `;
         break;
 
       case "invoice_count":
         result = await prisma.invoiceBill.count({
-          where: { customerId: BigInt(userId) }
+          where: { createdById: BigInt(userId) }
         });
         break;
 
@@ -31,14 +31,14 @@ const getAnalyticsForInvoice = tool(
           SELECT COALESCE(SUM(i."totalPrice"), 0) as value
           FROM invoice_bill_items i
           JOIN invoice_bills b ON b.id = i."invoiceId"
-          WHERE b."customerId" = ${BigInt(userId)}
+          WHERE b."createdById" = ${BigInt(userId)}
         `;
         break;
       case "average_invoice_value":
         result = await prisma.$queryRaw`
         SELECT COALESCE(AVG(b."totalAmount"), 0) as value
         FROM invoice_bills b
-        WHERE b."customerId" = ${BigInt(userId)}
+        WHERE b."createdById" = ${BigInt(userId)}
       `;
         break;
 
@@ -46,7 +46,7 @@ const getAnalyticsForInvoice = tool(
         result = await prisma.$queryRaw`
     SELECT COALESCE(SUM(b."paidAmount"), 0) as value
     FROM invoice_bills b
-    WHERE b."customerId" = ${BigInt(userId)}
+    WHERE b."createdById" = ${BigInt(userId)}
   `;
         break;
 
@@ -54,14 +54,14 @@ const getAnalyticsForInvoice = tool(
         result = await prisma.$queryRaw`
     SELECT COALESCE(SUM(b."balanceDue"), 0) as value
     FROM invoice_bills b
-    WHERE b."customerId" = ${BigInt(userId)}
+    WHERE b."createdById" = ${BigInt(userId)}
   `;
         break;
 
       case "overdue_count":
         result = await prisma.invoiceBill.count({
           where: {
-            customerId: BigInt(userId),
+            createdById: BigInt(userId),
             status: "OVERDUE"
           }
         });
@@ -70,7 +70,7 @@ const getAnalyticsForInvoice = tool(
       case "paid_count":
         result = await prisma.invoiceBill.count({
           where: {
-            customerId: BigInt(userId),
+            createdById: BigInt(userId),
             status: "PAID"
           }
         });
@@ -79,7 +79,7 @@ const getAnalyticsForInvoice = tool(
       case "draft_count":
         result = await prisma.invoiceBill.count({
           where: {
-            customerId: BigInt(userId),
+            createdById: BigInt(userId),
             status: "DRAFT"
           }
         });
@@ -89,7 +89,7 @@ const getAnalyticsForInvoice = tool(
         result = await prisma.$queryRaw`
         SELECT b."currency", COALESCE(SUM(b."totalAmount"), 0) as value
         FROM invoice_bills b
-        WHERE b."customerId" = ${BigInt(userId)}
+        WHERE b."createdById" = ${BigInt(userId)}
         GROUP BY b."currency"
         `;
         return JSON.stringify({ value: result });
@@ -98,7 +98,7 @@ const getAnalyticsForInvoice = tool(
         result = await prisma.$queryRaw`
           SELECT b."category", COALESCE(SUM(b."totalAmount"), 0) as value
           FROM invoice_bills b
-          WHERE b."customerId" = ${BigInt(userId)}
+          WHERE b."createdById" = ${BigInt(userId)}
           GROUP BY b."category"
         `;
         return JSON.stringify({ value: result });
@@ -107,7 +107,7 @@ const getAnalyticsForInvoice = tool(
         result = await prisma.$queryRaw`
           SELECT COALESCE(SUM(b."discount"), 0) as value
           FROM invoice_bills b
-          WHERE b."customerId" = ${BigInt(userId)}
+          WHERE b."createdById" = ${BigInt(userId)}
         `;
         break;
 
@@ -117,7 +117,7 @@ const getAnalyticsForInvoice = tool(
             DATE_TRUNC('month', b."issueDate") as month,
             COALESCE(SUM(b."totalAmount"), 0) as value
           FROM invoice_bills b
-          WHERE b."customerId" = ${BigInt(userId)}
+          WHERE b."createdById" = ${BigInt(userId)}
           GROUP BY month
           ORDER BY month ASC
         `;
@@ -127,7 +127,7 @@ const getAnalyticsForInvoice = tool(
         result = await prisma.$queryRaw`
           SELECT COALESCE(SUM(b."taxAmount"), 0) as value
           FROM invoice_bills b
-          WHERE b."customerId" = ${BigInt(userId)}
+          WHERE b."createdById" = ${BigInt(userId)}
         `;
         break;
 
@@ -135,7 +135,7 @@ const getAnalyticsForInvoice = tool(
         result = await prisma.$queryRaw`
           SELECT COALESCE(AVG(EXTRACT(DAY FROM (b."paidAt" - b."dueDate"))), 0) as value
           FROM invoice_bills b
-          WHERE b."customerId" = ${BigInt(userId)}
+          WHERE b."createdById" = ${BigInt(userId)}
             AND b."paidAt" IS NOT NULL
         `;
         break;
@@ -143,7 +143,7 @@ const getAnalyticsForInvoice = tool(
       case "export_invoice_count":
         result = await prisma.invoiceBill.count({
           where: {
-            customerId: BigInt(userId),
+            createdById: BigInt(userId),
             countryOfDestination: { not: null }
           }
         });

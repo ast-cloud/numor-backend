@@ -13,4 +13,9 @@ router.post(
   internalController.processInvoicePdfFailure
 );
 
+router.post(
+  "/sweep-invoice-pdf",
+  internalController.sweepInvoicePdfJobs
+);
+
 module.exports = router;

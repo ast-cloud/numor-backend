@@ -66,13 +66,16 @@ exports.sendBookingEmails = async (booking) => {
   }
 };
 
-exports.sendEmailWithAttachment = async ({to, subject, html, text, attachments}) => {
+exports.sendEmailWithAttachment = async ({to, subject, html, text, attachments, replyTo}) => {
   try {
     if (!to) throw new Error("Recipient email missing");
 
     const response = await resend.emails.send({
       from: EMAIL_FROM,
       to,
+      // Mail sent to an external party (a billed client, say) needs replies to
+      // reach the person who issued it, not the shared EMAIL_FROM address.
+      ...(replyTo ? { replyTo } : {}),
       subject,
       html,
       text: text || html.replace(/<[^>]+>/g, ""), // fallback

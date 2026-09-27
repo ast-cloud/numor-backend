@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "dev:debug": "nodemon --inspect-brk=9229 src/server.js"
+    "dev:debug": "nodemon --inspect-brk=9229 src/server.js",
+    "verify:chat-db": "node scripts/verify-chat-db.js",
+    "delete:org": "node scripts/delete-organization.js"
   },
   "keywords": [],
   "author": "",
@@ -51,6 +53,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@types/node": "^26.4.1",
     "eslint": "^9.39.2",
     "nodemon": "^3.1.11",
     "prettier": "^3.7.4",

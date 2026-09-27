@@ -109,6 +109,14 @@
          border-top: 1px solid #e5e7eb;
          background: #f9fafb;
          }
+         .totals tr.amount-in-words td {
+         font-weight: normal;
+         font-style: italic;
+         color: #6b7280;
+         font-size: 11px;
+         text-align: right;
+         padding-top: 6px;
+         }
          .highlight {
          color: #f59e0b;
          font-weight: bold;
@@ -211,7 +219,7 @@
                   <th>Description</th>
                   <th class="center">Qty</th>
                   <th class="center">Unit</th>
-                  <th class="center">Unit Type</th>
+                  <th class="center">Rate</th>
                   <th class="center">Tax %</th>
                   <th class="center">Total</th>
                </tr>
@@ -222,8 +230,8 @@
                   <td>{{serialNo}}</td>
                   <td>{{itemName}}</td>
                   <td class="center">{{quantity}}</td>
-                  <td class="center">{{unitPrice}}</td>
                   <td class="center">{{unitType}}</td>
+                  <td class="center">{{unitPrice}}</td>
                   <td class="center">{{taxRate}}%</td>
                   <td class="center">{{totalPrice}}</td>
                </tr>
@@ -253,6 +261,12 @@
                   <tr class="total-row">
                      <td>Total</td>
                      <td class="right highlight">{{currency}} {{totalAmount}}</td>
+                  </tr>
+                  {{#if amountInWords}}
+                  <tr class="amount-in-words">
+                     <td colspan="2">{{amountInWords}}</td>
+                  </tr>
+                  {{/if}}
                </table>
             </div>
          </div>

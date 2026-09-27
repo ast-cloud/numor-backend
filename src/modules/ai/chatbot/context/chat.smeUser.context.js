@@ -2,7 +2,7 @@ const prisma = require('../../../../config/database');
 
 module.exports = async function smeContext(user) {
   const invoicesSummary = await prisma.invoiceBill.aggregate({
-    where: { customerId: user.userId },
+    where: { createdById: user.userId },
     _sum: { totalAmount: true, balanceDue: true },
     _count: true
   });
@@ -13,7 +13,7 @@ module.exports = async function smeContext(user) {
   });
 
   //  const recentInvoices = await prisma.invoiceBill.findMany({
-  //   where: { customerId: user.userId },
+  //   where: { createdById: user.userId },
   //   orderBy: { issueDate: 'desc' },
   //   take: 10, 
   //   select: {

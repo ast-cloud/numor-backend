@@ -19,6 +19,7 @@ const {getTotalInvoiceTax} = require("../tools/getTotalInvoiceTax")
 const {getAnalyticsForInvoice} = require("../tools/generalInvoiceAnalytics")
 const {getExpenseAnalytics} = require("../tools/generalExpenseAnalytics")
 const { FF_CA_CORE, DATABASE_URL, RUN_LANGGRAPH_SETUP } = require("../../../../config/env");
+const { pgSslFor } = require("../../../../config/pgSsl");
 const isCACoreEnabled = FF_CA_CORE === "true";
 
 const enabledTools = [
@@ -60,9 +61,7 @@ const baseModel = new ChatGoogleGenerativeAI({
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false, 
-  }
+  ssl: pgSslFor(DATABASE_URL),
 });
 
 const checkpointer = new PostgresSaver(pool);

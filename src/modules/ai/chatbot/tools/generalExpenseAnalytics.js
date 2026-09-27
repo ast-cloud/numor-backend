@@ -22,7 +22,7 @@ const getExpenseAnalytics = tool(
         result = await prisma.expenseBill.aggregate({
           _sum: { totalAmount: true },
           where: {
-            userId: BigInt(userId),
+            createdById: BigInt(userId),
             ...dateFilter,
             ...(category ? { category } : {})
           }
@@ -35,7 +35,7 @@ const getExpenseAnalytics = tool(
         result = await prisma.$queryRaw`
           SELECT COALESCE(SUM(b."totalTax"), 0) AS value
           FROM expense_bills b
-          WHERE b."userId" = ${BigInt(userId)}
+          WHERE b."createdById" = ${BigInt(userId)}
         `;
 
         return {
@@ -45,7 +45,7 @@ const getExpenseAnalytics = tool(
       case "expense_count":
         const count = await prisma.expenseBill.count({
           where: {
-            userId: BigInt(userId),
+            createdById: BigInt(userId),
             ...dateFilter,
           }
         });
@@ -55,7 +55,7 @@ const getExpenseAnalytics = tool(
         result = await prisma.expenseBill.aggregate({
           _avg: { totalAmount: true },
           where: {
-            userId: BigInt(userId),
+            createdById: BigInt(userId),
             ...dateFilter,
           }
         });
@@ -67,7 +67,7 @@ const getExpenseAnalytics = tool(
           by: ["category"],
           _sum: { totalAmount: true },
           where: {
-            userId: BigInt(userId),
+            createdById: BigInt(userId),
             ...dateFilter,
           },
           orderBy: {
@@ -87,7 +87,7 @@ const getExpenseAnalytics = tool(
           by: ["merchant"],
           _sum: { totalAmount: true },
           where: {
-            userId: BigInt(userId),
+            createdById: BigInt(userId),
             ...dateFilter,
           },
           orderBy: {
@@ -105,7 +105,7 @@ const getExpenseAnalytics = tool(
           by: ["paymentMethod"],
           _sum: { totalAmount: true },
           where: {
-            userId: BigInt(userId),
+            createdById: BigInt(userId),
             ...dateFilter,
           },
         });
@@ -121,7 +121,7 @@ const getExpenseAnalytics = tool(
           TO_CHAR("expenseDate", 'YYYY-MM') as month,
           SUM("totalAmount") as total
         FROM expense_bills
-        WHERE "userId" = ${BigInt(userId)}
+        WHERE "createdById" = ${BigInt(userId)}
         GROUP BY month
         ORDER BY month ASC
       `;
@@ -131,7 +131,7 @@ const getExpenseAnalytics = tool(
       case "highest_expense":
         const highest = await prisma.expenseBill.findFirst({
           where: {
-            userId: BigInt(userId),
+            createdById: BigInt(userId),
             ...dateFilter,
           },
           orderBy: { totalAmount: "desc" }
@@ -149,7 +149,7 @@ const getExpenseAnalytics = tool(
           SUM((i."totalPrice" * i."taxRate") / 100) as tax
         FROM expense_bill_items i
         JOIN expense_bills b ON b.id = i."expenseId"
-        WHERE b."userId" = ${BigInt(userId)}
+        WHERE b."createdById" = ${BigInt(userId)}
         GROUP BY i."taxRate"
         ORDER BY i."taxRate"
       `;
@@ -160,7 +160,7 @@ const getExpenseAnalytics = tool(
         const daily = await prisma.$queryRaw`
             SELECT COALESCE(SUM("totalAmount") / COUNT(DISTINCT DATE("expenseDate")), 0) as value
             FROM expense_bills
-            WHERE "userId" = ${BigInt(userId)}
+            WHERE "createdById" = ${BigInt(userId)}
           `;
 
         return JSON.stringify({ value: Number(daily[0].value).toFixed(2) });

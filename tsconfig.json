@@ -1,0 +1,17 @@
+{
+  // This project is plain JavaScript; the only TypeScript file is prisma.config.ts,
+  // which the Prisma CLI loads directly. This config exists purely so the editor
+  // resolves Node globals (process) and package types for it.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["prisma.config.ts"]
+}

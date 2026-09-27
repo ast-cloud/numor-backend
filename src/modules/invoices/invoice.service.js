@@ -6,6 +6,10 @@ const storage = require('../../storage/storage.service');
 const { Parser } = require("json2csv");
 const ExcelJS = require("exceljs");
 
+// pdfStatus values finalize may (re)queue from. QUEUED/PROCESSING are excluded -
+// a job is already in flight; READY has nothing left to do.
+const REQUEUEABLE_PDF_STATUSES = new Set(["NOT_STARTED", "FAILED"]);
+
 function isExcelFile(mimetype, filename) {
     if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
         mimetype === "application/vnd.ms-excel") {
@@ -26,7 +30,8 @@ function isCsvFile(mimetype, filename) {
     );
 }
 
-const OVERDUE_ELIGIBLE_STATUSES = ["SENT", "UNPAID"];
+// Only an issued, unpaid invoice can fall overdue.
+const OVERDUE_ELIGIBLE_STATUSES = ["UNPAID"];
 
 // Flips any already-fetched invoices past their due date to OVERDUE.
 // Skips the write entirely when nothing in the batch actually needs it.
@@ -58,7 +63,12 @@ async function markOverdueInvoices(invoices) {
 function normalizeCustomFields(customFields) {
     if (!Array.isArray(customFields)) return [];
 
-    return customFields
+    // Keyed by name so a payload carrying the same field twice collapses to one
+    // entry instead of failing on the (invoiceId, customFieldId) unique index.
+    // Last one wins - it is the value the user edited most recently.
+    const byName = new Map();
+
+    const parsed = customFields
         .map((entry) => {
             if (!entry || typeof entry !== "object") return null;
 
@@ -80,6 +90,10 @@ function normalizeCustomFields(customFields) {
             };
         })
         .filter(Boolean);
+
+    for (const field of parsed) byName.set(field.name, field);
+
+    return [...byName.values()];
 }
 
 async function saveInvoiceCustomFields(tx, orgId, invoiceId, customFields) {
@@ -176,8 +190,7 @@ async function saveInvoiceFromPreview(user, payload) {
                         zipCode: payload.buyer.address?.zipCode,
                         country: payload.buyer.address?.country,
                         companyType: payload.buyer.companyType,
-                        gstin: payload.buyer.gstin,
-                        taxId: payload.buyer.taxId,
+                        taxId: payload.buyer.taxId ?? payload.buyer.gstin,
                         taxSystem: payload.buyer.taxSystem ?? "NONE",
                         isActive: true,
                     },
@@ -188,7 +201,7 @@ async function saveInvoiceFromPreview(user, payload) {
         const invoice = await tx.invoiceBill.create({
             data: {
                 orgId: BigInt(user.orgId),
-                customerId: BigInt(user.userId),
+                createdById: BigInt(user.userId),
                 clientId: client ? client.id : null,
 
                 invoiceNumber:
@@ -346,320 +359,445 @@ async function listInvoiceProducts(invoiceId, page = 1, limit = 10) {
     })
 }
 
-async function confirmAndCreateInvoice(user, data, sendEmail = false) {
-    // console.log('Invoice data before processing:', data);
-    const isDraft = data.status === 'DRAFT';
+// Shared builders. Create and update once kept separate copies of this mapping
+// and drifted - the update path silently ignored a dozen fields.
 
-    // console.log('Is draft:', isDraft);
-    const invoiceId = data.id;
-    // 1️⃣ Calculate totals safely
-    const subtotal = data.items.reduce(
+function generateInvoiceNumber(user) {
+    const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    return `INV-${user.userId}-${suffix.toUpperCase()}`;
+}
+
+function computeTotals(data) {
+    const items = data.items ?? [];
+
+    const subtotal = items.reduce(
         (s, i) => s + (i.quantity ?? 1) * (i.unitPrice ?? 0),
         0
     );
 
-    const taxAmount = data.items.reduce(
-        (s, i) =>
-            s +
-            ((i.quantity ?? 1) *
-                (i.unitPrice ?? 0) *
-                (i.taxRate ?? 0)) /
-            100,
+    const taxAmount = items.reduce(
+        (s, i) => s + ((i.quantity ?? 1) * (i.unitPrice ?? 0) * (i.taxRate ?? 0)) / 100,
         0
     );
-    const effectiveTax = subtotal ? Number(((taxAmount / subtotal) * 100).toFixed(2)) : 0;
 
     const discount = data.discount ?? 0;
     const shippingCost = data.shippingCost ?? 0;
-
-    const totalAmount =
-        subtotal - discount + taxAmount + shippingCost;
-
     const paidAmount = data.paidAmount ?? 0;
-    const balanceDue = totalAmount - paidAmount;
-
     const exchangeRate = data.exchangeRate ?? 1;
-    const baseAmount = totalAmount * exchangeRate;
+    const totalAmount = subtotal - discount + taxAmount + shippingCost;
 
-    if (invoiceId) {
-        const existing = await prisma.invoiceBill.findFirst({
-            where: {
-                id: BigInt(invoiceId),
-                orgId: BigInt(user.orgId),
-            },
-        });
-        // console.log('Existing invoice:', existing);
-        if (!existing) {
-            throw new Error("Invoice not found");
-        }
+    return {
+        subtotal,
+        taxAmount,
+        discount,
+        shippingCost,
+        paidAmount,
+        exchangeRate,
+        totalAmount,
+        balanceDue: totalAmount - paidAmount,
+        baseAmount: totalAmount * exchangeRate,
+        effectiveTax: subtotal ? Number(((taxAmount / subtotal) * 100).toFixed(2)) : 0,
+    };
+}
 
-        const updated = await prisma.invoiceBill.update({
-            where: { id: BigInt(invoiceId) },
-            data: {
-                // Amounts
-                subtotal,
-                discount,
-                taxAmount,
-                shippingCost,
-                totalAmount,
-                paidAmount,
-                balanceDue,
-                effectiveTax,
+function buildItemsCreate(items) {
+    return (items ?? []).map((item) => ({
+        itemName: item.name,
+        description: item.description,
+        quantity: item.quantity ?? 1,
+        unitType: item.unitType ?? "UNIT",
+        unitPrice: item.unitPrice ?? 0,
+        taxRate: item.taxRate ?? 0,
+        totalPrice: item.itemTotal ?? (item.quantity ?? 1) * (item.unitPrice ?? 0),
+    }));
+}
 
-                // Status logic
-                status: data.status,
-                pdfStatus:
-                    !isDraft && existing.pdfStatus === "NOT_STARTED"
-                        ? "QUEUED"
-                        : existing.pdfStatus,
+// Every scalar column a create writes. Updates go through updateInvoice(),
+// which patches only the keys the caller actually sent.
+function buildInvoiceFields(user, data, totals) {
+    return {
+        orgId: BigInt(user.orgId),
+        createdById: BigInt(user.userId),
+        clientId: data.clientId ? BigInt(data.clientId) : null,
 
-                confirmedAt: !isDraft && !existing.confirmedAt
-                    ? new Date()
-                    : existing.confirmedAt,
+        invoiceNumber: data.invoiceNumber ?? generateInvoiceNumber(user),
+        invoiceType: data.invoiceType ?? "TAX",
 
-                sentAt: !isDraft && !existing.sentAt
-                    ? new Date()
-                    : existing.sentAt,
+        issueDate: data.issueDate ? new Date(data.issueDate) : new Date(),
+        dueDate: data.dueDate ? new Date(data.dueDate) : new Date(),
+        paymentTerms: data.paymentTerms ?? "Due on receipt",
 
-                // Update everything else as usual
-                notes: data.notes,
-                paymentTerms: data.paymentTerms,
-                taxSummary: data.taxSummary,
-                bankDetails: data.bankDetails,
+        currency: data.currency ?? "USD",
+        baseCurrency: data.baseCurrency ?? "INR",
+        ...totals,
 
-                // Replace items safely
-                items: {
-                    deleteMany: {},
-                    create: (data.items ?? []).map((item) => ({
-                        itemName: item.name,
-                        description: item.description,
-                        quantity: item.quantity ?? 1,
-                        unitType: item.unitType ?? "UNIT",
-                        unitPrice: item.unitPrice ?? 0,
-                        taxRate: item.taxRate ?? 0,
-                        // totalPrice:
-                        //     (item.quantity ?? 1) *
-                        //     (item.unitPrice ?? 0) +
-                        //     ((item.quantity ?? 1) *
-                        //         (item.unitPrice ?? 0) *
-                        //         (item.taxRate ?? 0)) / 100,
-                        "totalPrice": item.itemTotal ?? 0,
-                    })),
-                },
-            },
-            include: {
-                items: true,
-                customFields: {
-                    include: {
-                        customField: true,
-                    },
-                },
-            },
-        });
+        category: data.category ?? "OTHER",
 
-        if (data.customFields !== undefined) {
-            await prisma.invoiceCustomFieldValue.deleteMany({
-                where: { invoiceId: BigInt(invoiceId) },
-            });
-            await saveInvoiceCustomFields(prisma, user.orgId, updated.id, data.customFields);
-            return prisma.invoiceBill.findFirstOrThrow({
-                where: { id: BigInt(invoiceId) },
-                include: {
-                    items: true,
-                    customFields: {
-                        include: {
-                            customField: true,
-                        },
-                    },
-                },
-            });
-        }
+        sellerName: data.seller?.name,
+        sellerEmail: data.seller?.email,
+        sellerPhone: data.seller?.phone,
+        sellerStreetAddress: data.seller?.streetAddress,
+        sellerCity: data.seller?.city,
+        sellerState: data.seller?.state,
+        sellerZipCode: data.seller?.zipCode,
+        sellerCountry: data.seller?.country,
+        sellerTaxId: data.seller?.taxId,
+        sellerTaxSystem: data.seller?.taxSystem,
+        iecCode: data.seller?.iecCode,
+        lutFiled: data.seller?.lutFiled ?? false,
 
-        // 3️⃣ Queue PDF only once
-        if (!isDraft && existing.pdfStatus === "NOT_STARTED") {
-            try {
-                await qstashService.publishInvoicePdfJob({
-                    invoiceId: updated.id,
-                    sendEmail,
-                });
-            } catch (err) {
-                console.error("QStash publish failed (update path):", err);
+        taxType: data.taxType ?? "NONE",
+        placeOfSupply: data.placeOfSupply,
+        reverseCharge: data.reverseCharge ?? false,
+        reverseReason: data.reverseReason,
+        sacCode: data.sacCode,
+        taxSummary: data.taxSummary,
 
-                await prisma.invoiceBill.update({
-                    where: { id: BigInt(invoiceId) },
-                    data: { pdfStatus: "DRAFT" },
-                });
-            }
-        }
-        console.log('Data after Processing:', updated.id);
-        return updated;
+        shipToName: data.shipTo?.name,
+        shipToAddress: data.shipTo?.address,
+        countryOfOrigin: data.countryOfOrigin,
+        countryOfDestination: data.countryOfDestination,
+        incoterms: data.incoterms,
+
+        bankDetails: data.bankDetails,
+        paymentLink: data.paymentLink,
+        bankAddress: data.bankAddress,
+
+        jurisdiction: data.jurisdiction,
+        lateFeePolicy: data.lateFeePolicy,
+        notes: data.notes,
+    };
+}
+
+// What a mutation returns. Every caller of finalize / resend / payment-status
+// discards the body, so loading items and custom fields back out is wasted work.
+const INVOICE_STATE = { id: true, status: true, pdfStatus: true, emailStatus: true };
+
+// Creates only - never issues. finalizeInvoice() is a separate request made once
+// the client holds the id. idempotencyKey covers the gap before that: the unique
+// index on (orgId, idempotencyKey) resolves a retry to the row it already made.
+async function createInvoice(loggedInUser, data, { idempotencyKey }) {
+    const orgId = BigInt(loggedInUser.orgId);
+    const totals = computeTotals(data);
+    const fields = buildInvoiceFields(loggedInUser, data, totals);
+
+    // Identity must survive a retry: buildInvoiceFields generates a fresh
+    // invoiceNumber when the payload omits one, which would renumber on update.
+    const { invoiceNumber, orgId: _orgId, createdById, ...updatableFields } = fields;
+
+    // Only drafts may be rewritten - an issued invoice's PDF may already be with
+    // the client. Also covers "already emailed", which happens after DRAFT.
+    const prior = await prisma.invoiceBill.findUnique({
+        where: { orgId_idempotencyKey: { orgId, idempotencyKey } },
+        select: INVOICE_STATE,
+    });
+
+    if (prior && prior.status !== "DRAFT") {
+        return prior;
     }
 
-    // 2️⃣ Create CONFIRMED + SENT invoice
-    const invoice = await prisma.invoiceBill.create({
-        data: {
-            // 🔑 Core relations
-            orgId: BigInt(user.orgId),
-            customerId: BigInt(user.userId),
-            clientId: data.clientId ? BigInt(data.clientId) : null,
-
-            // 📄 Invoice identity
-            invoiceNumber:
-                data.invoiceNumber ??
-                `INV-${user.userId}-${(
-                    Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
-                ).toUpperCase()}`,
-            invoiceType: data.invoiceType ?? "TAX",
-
-            issueDate: data.issueDate ? new Date(data.issueDate) : new Date(),
-            dueDate: data.dueDate ? new Date(data.dueDate) : new Date(),
-            paymentTerms: data.paymentTerms ?? "Due on receipt",
-
-            // 💱 Currency
-            currency: data.currency ?? "USD",
-            exchangeRate,
-            baseCurrency: data.baseCurrency ?? "INR",
-            baseAmount,
-
-            // 💰 Amounts
-            subtotal,
-            discount,
-            taxAmount,
-            shippingCost,
-            totalAmount,
-            paidAmount,
-            balanceDue,
-            effectiveTax,
-
-            // 📌 Status
-            status: data.status ?? "DRAFT",
-            confirmedAt: new Date(),
-            sentAt: new Date(),
-            pdfStatus: "NOT_STARTED",
-            category: data.category ?? "OTHER",
-
-            // 🧾 Seller snapshot
-            sellerName: data.seller?.name,
-            sellerEmail: data.seller?.email,
-            sellerPhone: data.seller?.phone,
-            sellerStreetAddress: data.seller?.streetAddress,
-            sellerCity: data.seller?.city,
-            sellerState: data.seller?.state,
-            sellerZipCode: data.seller?.zipCode,
-            sellerCountry: data.seller?.country,
-            sellerTaxId: data.seller?.taxId,
-            sellerTaxSystem: data.seller?.taxSystem,
-            iecCode: data.seller?.iecCode,
-            lutFiled: data.seller?.lutFiled ?? false,
-
-            // 🧮 Tax & compliance
-            taxType: data.taxType ?? "NONE",
-            placeOfSupply: data.placeOfSupply,
-            reverseCharge: data.reverseCharge ?? false,
-            reverseReason: data.reverseReason,
-            sacCode: data.sacCode,
-            taxSummary: data.taxSummary,
-
-            // 🚚 Shipping / trade
-            shipToName: data.shipTo?.name,
-            shipToAddress: data.shipTo?.address,
-            countryOfOrigin: data.countryOfOrigin,
-            countryOfDestination: data.countryOfDestination,
-            incoterms: data.incoterms,
-
-            // 💳 Payment
-            bankDetails: data.bankDetails,
-            paymentLink: data.paymentLink,
-            bankAddress: data.bankAddress,
-
-            // ⚖️ Legal
-            jurisdiction: data.jurisdiction,
-            lateFeePolicy: data.lateFeePolicy,
-            notes: data.notes,
-
-            // 📦 Items (EXPLICIT mapping)
-            items: {
-                create: data.items.map((item) => ({
-                    itemName: item.name,
-                    description: item.description,
-                    quantity: item.quantity ?? 1,
-                    unitType: item.unitType ?? "UNIT",
-                    unitPrice: item.unitPrice ?? 0,
-                    taxRate: item.taxRate ?? 0,
-                    // totalPrice:
-                    //     (item.quantity ?? 1) *
-                    //     (item.unitPrice ?? 0) +
-                    //     ((item.quantity ?? 1) *
-                    //         (item.unitPrice ?? 0) *
-                    //         (item.taxRate ?? 0)) /
-                    //     100,
-                    "totalPrice": item.itemTotal ?? 0,
-                })),
-            },
-        },
-        include: {
-            items: true,
-            customFields: {
-                include: {
-                    customField: true,
+    const writeInvoice = () =>
+        prisma.$transaction(async (tx) => {
+            const invoice = await tx.invoiceBill.upsert({
+                where: { orgId_idempotencyKey: { orgId, idempotencyKey } },
+                create: {
+                    ...fields,
+                    idempotencyKey,
+                    status: "DRAFT",
+                    pdfStatus: "NOT_STARTED",
+                    items: { create: buildItemsCreate(data.items) },
                 },
-            },
+                // A retry may carry edits, so the newer payload wins. Resetting
+                // pdfStatus re-renders from it; clearing the lease fences out any
+                // worker still rendering the old data.
+                update: {
+                    ...updatableFields,
+                    pdfStatus: "NOT_STARTED",
+                    pdfLeaseExpiresAt: null,
+                    items: { deleteMany: {}, create: buildItemsCreate(data.items) },
+                },
+                select: INVOICE_STATE,
+            });
+
+            await tx.invoiceCustomFieldValue.deleteMany({ where: { invoiceId: invoice.id } });
+            await saveInvoiceCustomFields(tx, loggedInUser.orgId, invoice.id, data.customFields);
+
+            return invoice;
+        });
+
+    try {
+        return await writeInvoice();
+    } catch (err) {
+        // Prisma only compiles upsert to a native ON CONFLICT for simple
+        // queries; nested item writes can make it read-then-write, which two
+        // concurrent requests can both lose. The constraint still catches it.
+        const isDuplicateKey =
+            err.code === "P2002" &&
+            String(err.meta?.target ?? "").includes("idempotencyKey");
+
+        if (!isDuplicateKey) throw err;
+
+        return writeInvoice();
+    }
+}
+
+// Queues PDF generation. Idempotent - it is both "confirm" and "retry".
+// Deliberately leaves the invoice in DRAFT: the worker promotes it to UNPAID when
+// the document actually exists, which also keeps a failed invoice editable.
+async function finalizeInvoice(loggedInUser, id, { sendEmail = false } = {}) {
+    const invoiceId = BigInt(id);
+
+    const invoice = await prisma.invoiceBill.findFirst({
+        where: { id: invoiceId, orgId: BigInt(loggedInUser.orgId) },
+        select: INVOICE_STATE,
+    });
+
+    if (!invoice) {
+        throw new Error("Invoice not found");
+    }
+
+    // A job already in flight or finished is left alone - no stacked jobs.
+    if (!REQUEUEABLE_PDF_STATUSES.has(invoice.pdfStatus)) {
+        return invoice;
+    }
+
+    // QUEUED before publishing, never after: the worker can finish while we are
+    // still here, and a later write would clobber its READY.
+    let queued = await prisma.invoiceBill.update({
+        where: { id: invoiceId },
+        data: { pdfStatus: "QUEUED", pdfLeaseExpiresAt: null },
+        select: INVOICE_STATE,
+    });
+
+    // If we crash between the write above and the publish below, the invoice says
+    // QUEUED but no job exists. Nothing the user does fixes this: a retry is
+    // refused, because we cannot tell "the publish never landed" from "a job is
+    // queued and about to arrive", and guessing wrong would run it twice. The
+    // sweeper picks it up after 10 minutes, when elapsed time makes it certain.
+    //
+    // This gap exists because no transaction can span Postgres and QStash.
+    try {
+        await qstashService.publishInvoicePdfJob({ invoiceId, sendEmail });
+    } catch (err) {
+        console.error("QStash publish failed:", err);
+
+        // Nothing will pick this up. FAILED is re-queueable; QUEUED is not.
+        queued = await prisma.invoiceBill.update({
+            where: { id: invoiceId },
+            data: { pdfStatus: "FAILED" },
+            select: INVOICE_STATE,
+        });
+    }
+
+    // CRASH POINT - response lost after publishing: the job still runs, and a
+    // retry hits the guard above and no-ops.
+    return queued;
+}
+
+// The one place at-most-once may be overridden - a human is asserting the mail
+// never arrived. Nothing automatic re-sends.
+async function resendInvoiceEmail(loggedInUser, id) {
+    const invoiceId = BigInt(id);
+
+    const invoice = await prisma.invoiceBill.findFirst({
+        where: { id: invoiceId, orgId: BigInt(loggedInUser.orgId) },
+        select: { ...INVOICE_STATE, client: { select: { email: true } } },
+    });
+
+    if (!invoice) {
+        throw new Error("Invoice not found");
+    }
+
+    if (invoice.pdfStatus !== "READY") {
+        throw new Error("The invoice PDF is not ready yet");
+    }
+
+    if (!invoice.client?.email) {
+        throw new Error("This client has no email address on file");
+    }
+
+    if (invoice.emailStatus === "PENDING") {
+        // Already in flight; queueing another risks two mails.
+        return invoice;
+    }
+
+    // FAILED, not PENDING: the worker claims by moving FAILED -> PENDING, so
+    // every sender takes the same claim path.
+    const reset = await prisma.invoiceBill.update({
+        where: { id: invoiceId },
+        data: { emailStatus: "FAILED", emailError: null },
+        select: INVOICE_STATE,
+    });
+
+    try {
+        await qstashService.publishInvoicePdfJob({ invoiceId, sendEmail: true });
+    } catch (err) {
+        console.error("QStash publish failed (email retry):", err);
+        throw new Error("Could not queue the email. Please try again.");
+    }
+
+    return reset;
+}
+
+// Cheap enough to poll per row. getInvoice() loads items and custom fields.
+async function getInvoiceStatus(loggedInUser, id) {
+    const invoice = await prisma.invoiceBill.findFirst({
+        where: { id: BigInt(id), orgId: BigInt(loggedInUser.orgId) },
+        select: {
+            id: true,
+            status: true,
+            pdfStatus: true,
+            pdfKey: true,
+            emailStatus: true,
+            emailError: true,
         },
     });
 
-    await saveInvoiceCustomFields(prisma, user.orgId, invoice.id, data.customFields);
-    // console.log('Created invoice with ID:', invoice.id);
+    if (!invoice) {
+        throw new Error("Invoice not found");
+    }
 
-    // 3️⃣ Queue PDF generation
-    // await invoiceQueue.enqueue({ invoiceId: invoice.id });
-
-    // 3️⃣ Trigger PDF generation (async, reliable)
-    // await qstashService.publishInvoicePdfJob({
-    //     invoiceId: invoice.id,
-    // });
-    if (!isDraft) {
+    let pdfUrl = null;
+    if (invoice.pdfStatus === "READY" && invoice.pdfKey) {
         try {
-           const queueResponse =  await qstashService.publishInvoicePdfJob({
-                invoiceId: invoice.id,
-                sendEmail
-            });
-            console.log('QStash publish log:', queueResponse);
-            return await prisma.invoiceBill.update({
-                where: { id: invoice.id },
-                data: { pdfStatus: "QUEUED" },
-                include: {
-                    items: true,
-                    customFields: {
-                        include: {
-                            customField: true,
-                        },
-                    },
-                }
-            });
-
-        } catch (err) {
-            console.error("QStash publish failed:", err);
-
-            // ❌ Mark FAILED
-            // return await prisma.invoiceBill.update({
-            //     where: { id: invoice.id },
-            //     data: { pdfStatus: "NOT_STARTED" },
-            //     include: { items: true }
-            // });
+            pdfUrl = await storage.getSignedUrl(invoice.pdfKey);
+        } catch (error) {
+            console.warn("Could not sign invoice PDF URL:", error.message);
         }
     }
-    // console.log('Data after Processing:', invoice);
 
-    return prisma.invoiceBill.findFirstOrThrow({
-        where: { id: invoice.id },
-        include: {
-            items: true,
-            customFields: {
-                include: {
-                    customField: true,
+    return {
+        id: invoice.id.toString(),
+        status: invoice.status,
+        pdfStatus: invoice.pdfStatus,
+        emailStatus: invoice.emailStatus,
+        emailError: invoice.emailError,
+        pdfUrl,
+        // Both lifecycles settled - stop polling.
+        settled:
+            ["READY", "FAILED"].includes(invoice.pdfStatus) &&
+            ["NOT_REQUESTED", "SENT", "FAILED"].includes(invoice.emailStatus),
+    };
+}
+
+// Separate from updateInvoice(): marking PAID is a different intent from editing.
+// Copies an invoice's contents into a fresh draft. Everything about the
+// original's lifecycle is left behind - number, PDF, email, payments - so the
+// copy starts as if it had just been filled in by hand.
+async function cloneInvoiceAsDraft(loggedInUser, id, { idempotencyKey }) {
+    const orgId = BigInt(loggedInUser.orgId);
+
+    // Same guard as createInvoice: a retry of one clone must not make a second.
+    const prior = await prisma.invoiceBill.findUnique({
+        where: { orgId_idempotencyKey: { orgId, idempotencyKey } },
+        select: INVOICE_STATE,
+    });
+
+    if (prior) {
+        return prior;
+    }
+
+    const source = await prisma.invoiceBill.findFirst({
+        where: { id: BigInt(id), orgId },
+        include: { items: true, customFields: true },
+    });
+
+    if (!source) {
+        throw new Error("Invoice not found");
+    }
+
+    // Everything named here belongs to the original and must not be copied;
+    // whatever remains in `content` is the invoice's actual contents. Listing the
+    // exclusions rather than the inclusions means a column added later is copied
+    // by default, which is the safer way round for a clone.
+    const {
+        id: _id,
+        invoiceNumber: _invoiceNumber,
+        idempotencyKey: _idempotencyKey,
+        status: _status,
+        pdfStatus: _pdfStatus,
+        pdfKey: _pdfKey,
+        pdfLeaseExpiresAt: _pdfLeaseExpiresAt,
+        pdfAttempts: _pdfAttempts,
+        emailStatus: _emailStatus,
+        emailSentAt: _emailSentAt,
+        emailError: _emailError,
+        confirmedAt: _confirmedAt,
+        sentAt: _sentAt,
+        paidAt: _paidAt,
+        paidAmount: _paidAmount,
+        balanceDue: _balanceDue,
+        createdAt: _createdAt,
+        updatedAt: _updatedAt,
+        createdById: _createdById,
+        updatedById: _updatedById,
+        items,
+        customFields,
+        ...content
+    } = source;
+
+    return prisma.$transaction(async (tx) => {
+        const clone = await tx.invoiceBill.create({
+            data: {
+                ...content,
+                createdById: BigInt(loggedInUser.userId),
+                invoiceNumber: generateInvoiceNumber(loggedInUser),
+                idempotencyKey,
+                status: "DRAFT",
+                pdfStatus: "NOT_STARTED",
+                // A copy owes its full amount, however much the original was paid.
+                paidAmount: 0,
+                balanceDue: source.totalAmount,
+                items: {
+                    create: items.map((item) => ({
+                        itemName: item.itemName,
+                        description: item.description,
+                        quantity: item.quantity,
+                        unitType: item.unitType,
+                        unitPrice: item.unitPrice,
+                        taxRate: item.taxRate,
+                        totalPrice: item.totalPrice,
+                    })),
                 },
             },
+            select: INVOICE_STATE,
+        });
+
+        if (customFields.length) {
+            await tx.invoiceCustomFieldValue.createMany({
+                data: customFields.map((cf) => ({
+                    invoiceId: clone.id,
+                    customFieldId: cf.customFieldId,
+                    orgId,
+                    value: cf.value,
+                })),
+            });
+        }
+
+        return clone;
+    });
+}
+
+async function setPaymentStatus(user, id, status) {
+    const invoiceId = BigInt(id);
+
+    const existing = await prisma.invoiceBill.findFirst({
+        where: { id: invoiceId, orgId: BigInt(user.orgId) },
+        select: { id: true },
+    });
+
+    if (!existing) {
+        throw new Error("Invoice not found");
+    }
+
+    return prisma.invoiceBill.update({
+        where: { id: invoiceId },
+        data: {
+            status,
+            paidAt: status === "PAID" ? new Date() : null,
+            updatedById: BigInt(user.userId),
         },
+        select: INVOICE_STATE,
     });
 }
 
@@ -682,72 +820,37 @@ async function updateInvoice(user, id, data) {
             throw new Error("Invoice not found");
         }
 
-        const updateData = {};
-
-        // --------------------------------------------------
-        // 2️⃣ Handle Client (Buyer) Logic
-        // --------------------------------------------------
-
-        if (data.buyer) {
-            let clientId = existingInvoice.clientId;
-
-            if (clientId) {
-                // Update existing client
-                await tx.client.update({
-                    where: { id: clientId },
-                    data: {
-                        name: data.buyer.name,
-                        email: data.buyer.email,
-                        phone: data.buyer.phone,
-                        streetAddress: data.buyer.address?.street,
-                        city: data.buyer.address?.city,
-                        state: data.buyer.address?.state,
-                        zipCode: data.buyer.address?.zipCode,
-                        country: data.buyer.address?.country,
-                        companyType: data.buyer.companyType,
-                        gstin: data.buyer.gstin,
-                        taxId: data.buyer.taxId,
-                        taxSystem: data.buyer.taxSystem ?? "NONE",
-                    },
-                });
-            } else {
-                // Create new client
-                const newClient = await tx.client.create({
-                    data: {
-                        orgId: BigInt(user.orgId),
-                        name: data.buyer.name,
-                        email: data.buyer.email,
-                        phone: data.buyer.phone,
-                        streetAddress: data.buyer.address?.street,
-                        city: data.buyer.address?.city,
-                        state: data.buyer.address?.state,
-                        zipCode: data.buyer.address?.zipCode,
-                        country: data.buyer.address?.country,
-                        companyType: data.buyer.companyType,
-                        gstin: data.buyer.gstin,
-                        taxId: data.buyer.taxId,
-                        taxSystem: data.buyer.taxSystem ?? "NONE",
-                        isActive: true,
-                    },
-                });
-
-                updateData.clientId = newClient.id;
-            }
+        // Only drafts are editable. Once the PDF exists the invoice is issued and
+        // may be with the client. A failed render stays DRAFT so it can be fixed.
+        if (existingInvoice.status !== "DRAFT") {
+            throw new Error("Only draft invoices can be edited");
         }
 
+        // Lease fencing would handle the race, but a silently restarted PDF is
+        // confusing - refuse instead.
+        if (["QUEUED", "PROCESSING"].includes(existingInvoice.pdfStatus)) {
+            throw new Error("This invoice is being generated - try again in a moment");
+        }
+
+        const updateData = {};
+
+        // 2️⃣ Attach the client. Attaching only - creating or rewriting one
+        // belongs to the clients module.
+
         if (data.clientId !== undefined) {
-            updateData.clientId = BigInt(data.clientId);
+            updateData.clientId = data.clientId === null ? null : BigInt(data.clientId);
         }
 
         // --------------------------------------------------
         // 3️⃣ Map All Direct Invoice Fields
         // --------------------------------------------------
 
+        // "status" is absent deliberately - it belongs to setPaymentStatus() and
+        // finalizeInvoice(). An edit must not be able to mark an invoice PAID.
         const directFields = [
             "invoiceNumber",
             "invoiceType",
             "paymentTerms",
-            "status",
             "category",
             "currency",
             "baseCurrency",
@@ -908,6 +1011,7 @@ async function updateInvoice(user, id, data) {
         }
 
         updateData.updatedAt = new Date();
+        updateData.updatedById = BigInt(user.userId);
 
         // --------------------------------------------------
         // 8️⃣ Final Update
@@ -966,7 +1070,11 @@ async function getInvoice(user, id) {
     await markOverdueInvoices(invoice);
     return {
         ...invoice,
+        // definitionId is what the dialog matches its checkboxes on. Without it
+        // a saved field renders unticked, the user ticks it again, and the
+        // invoice ends up with the same field twice.
         customFields: (invoice.customFields ?? []).map(cf => ({
+            definitionId: cf.customFieldId.toString(),
             name: cf.customField.name,
             value: cf.value
         }))
@@ -1038,40 +1146,62 @@ async function getSignedPdfUrl(user, id) {
     };
 }
 
-const clients = new Map();
-// key: `${userId}:${invoiceId}` → res
+const PDF_TERMINAL_STATUSES = new Set(['READY', 'FAILED']);
+const STREAM_POLL_MS = 2000;
+// Closed rather than left hanging if the PDF never settles.
+const STREAM_MAX_MS = 5 * 60 * 1000;
 
-async function openStream({ req, res, userId, invoiceId }) {
-    const key = `${userId}:${invoiceId}`;
-
+// SSE stream of pdfStatus. Polls the database itself rather than waiting to be
+// notified, so it is stateless - a process-local Map broke as soon as a second
+// instance existed, since the stream and the webhook could land on different ones.
+async function openStream({ req, res, orgId, invoiceId }) {
     res.set({
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
+        'Connection': 'keep-alive',
+        // Stops nginx buffering the stream into uselessness.
+        'X-Accel-Buffering': 'no'
     });
-    //Calling res.flushHeaders() initiates the response but does not signal the end of the data transfer. You can continue to use res.write() to send data chunks. The connection stays open until res.end() is called.
+    // Starts the response without ending it.
     res.flushHeaders();
 
-    clients.set(key, res);
+    let closed = false;
+    req.on('close', () => { closed = true; });
 
-    req.on('close', () => {
-        clients.delete(key);
-    });
-};
+    const startedAt = Date.now();
+    let lastStatus = null;
 
-async function pushPdfReady({ userId, invoiceId, signedUrl }) {
-    const key = `${userId}:${invoiceId}`;
-    const client = clients.get(key);
+    while (!closed) {
+        const invoice = await prisma.invoiceBill.findFirst({
+            where: { id: BigInt(invoiceId), orgId: BigInt(orgId) },
+            select: { pdfStatus: true }
+        });
 
-    if (!client) return;
+        if (!invoice) {
+            res.write(`event: error\ndata: ${JSON.stringify({ message: 'Invoice not found' })}\n\n`);
+            break;
+        }
 
-    client.write(`event: pdf-ready\n`);
-    client.write(
-        `data: ${JSON.stringify({ status: 'READY', signedUrl })}\n\n`
-    );
+        // First pass emits before any wait, so a PDF that finished before the
+        // connection opened is not missed.
+        if (invoice.pdfStatus !== lastStatus) {
+            lastStatus = invoice.pdfStatus;
+            res.write(`data: ${JSON.stringify({ status: invoice.pdfStatus })}\n\n`);
+        }
 
-    client.end();
-    clients.delete(key);
+        if (PDF_TERMINAL_STATUSES.has(invoice.pdfStatus)) break;
+
+        if (Date.now() - startedAt > STREAM_MAX_MS) {
+            res.write(`event: timeout\ndata: ${JSON.stringify({ status: invoice.pdfStatus })}\n\n`);
+            break;
+        }
+
+        // Keep-alive for proxies that cull idle connections.
+        res.write(': ping\n\n');
+        await new Promise((r) => setTimeout(r, STREAM_POLL_MS));
+    }
+
+    if (!closed) res.end();
 };
 
 async function deleteInvoice(user, id) {
@@ -1221,11 +1351,15 @@ module.exports = {
     listInvoices,
     listInvoiceProducts,
     previewInvoiceAI,
-    confirmAndCreateInvoice,
+    createInvoice,
+    cloneInvoiceAsDraft,
+    finalizeInvoice,
+    resendInvoiceEmail,
+    getInvoiceStatus,
+    setPaymentStatus,
     getInvoice,
     getSignedPdfUrl,
     openStream,
-    pushPdfReady,
     updateInvoice,
     deleteInvoice,
     exportInvoices

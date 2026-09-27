@@ -125,6 +125,10 @@ async function registerUser(data) {
                 authProvider: 'LOCAL',
                 userType: 'INTERNAL',
                 role: user.role || 'SME_USER',
+                // Sole member of the org created just above, so they own it.
+                // Without this, requirePermission falls through to the null
+                // `permissions` blob and denies them their own organization.
+                isOrgOwner: true,
             },
             include: {
                 organization: true,
@@ -272,6 +276,8 @@ async function googleAuth(code, user_type_for_signup) {
                 authProvider: "GOOGLE",
                 userType: "INTERNAL",
                 role: role ?? "SME_USER",
+                // Sole member of the org created just above, so they own it.
+                isOrgOwner: true,
             },
         });
     }

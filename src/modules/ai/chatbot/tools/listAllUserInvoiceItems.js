@@ -12,7 +12,7 @@ const listAllUserInvoiceItems = tool(
     const items = await prisma.invoiceBillItem.findMany({
       where: {
         invoice: {
-          customerId: BigInt(userId), // 🔐 secure ownership filter
+          createdById: BigInt(userId), // 🔐 secure ownership filter
         },
       },
       orderBy: {

@@ -21,8 +21,6 @@ model Organization {
   taxId                  String?
   logoUrl                String?
   isActive               Boolean                   @default(true)
-  createdAt              DateTime                  @default(now())
-  updatedAt              DateTime                  @updatedAt
   expenses               ExpenseBill[]
   invoices               InvoiceBill[]
   kpis                   KpiSnapshot[]
@@ -33,6 +31,9 @@ model Organization {
   customFieldValues      InvoiceCustomFieldValue[]
   customUnitsInvoice     String[]                  @default([])
   activeUnitsInvoice     String[]                  @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("organizations")
 }
@@ -54,8 +55,6 @@ model User {
   isOrgOwner             Boolean       @default(false)
   permissions            Json?
   isActive               Boolean       @default(true)
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
   resetPasswordExpiresAt DateTime?
   resetPasswordToken     String?
   isEmailVerified        Boolean       @default(false)
@@ -63,9 +62,14 @@ model User {
   caBookings             CABooking[]
   caProfile              CAProfile?
   caReviews              CAReview[]
-  expenses               ExpenseBill[]
-  invoices               InvoiceBill[]
-  organization           Organization  @relation(fields: [orgId], references: [id])
+  invoicesCreated        InvoiceBill[] @relation("InvoiceCreatedBy")
+  invoicesUpdated        InvoiceBill[] @relation("InvoiceUpdatedBy")
+  expensesCreated        ExpenseBill[] @relation("ExpenseCreatedBy")
+  expensesUpdated        ExpenseBill[] @relation("ExpenseUpdatedBy")
+  organization           Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("users")
 }
@@ -84,13 +88,15 @@ model UserInvitation {
 }
 
 model CustomFieldDefinition {
-  id           BigInt                    @id @default(autoincrement())
-  orgId        BigInt?
-  name         String
-  predefinedValues String[]              @default([])
-  createdAt    DateTime                  @default(now())
-  updatedAt    DateTime                  @updatedAt
-  organization Organization?             @relation(fields: [orgId], references: [id])
+  id               BigInt   @id @default(autoincrement())
+  orgId            BigInt
+  name             String
+  predefinedValues String[] @default([])
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
   values       InvoiceCustomFieldValue[]
 
   @@unique([orgId, name])
@@ -100,7 +106,7 @@ model CustomFieldDefinition {
 
 model Client {
   id            BigInt        @id @default(autoincrement())
-  orgId         BigInt?
+  orgId         BigInt
   name          String        @db.Citext
   email         String?       @db.Citext
   phone         String?
@@ -116,7 +122,7 @@ model Client {
   isActive      Boolean       @default(true)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-  organization  Organization?  @relation(fields: [orgId], references: [id])
+  organization  Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   invoices      InvoiceBill[]
 
   @@index([orgId])
@@ -124,47 +130,46 @@ model Client {
 }
 
 model InvoiceBill {
-  id                   BigInt                    @id @default(autoincrement())
+  id                   BigInt        @id @default(autoincrement())
   orgId                BigInt
   clientId             BigInt?
-  customerId           BigInt
   invoiceNumber        String
-  invoiceType          String                    @default("TAX")
+  invoiceType          String        @default("TAX")
   issueDate            DateTime
   dueDate              DateTime
   paymentTerms         String?
-  currency             String                    @default("USD")
-  exchangeRate         Decimal?                  @db.Decimal(10, 4)
-  baseCurrency         String?                   @default("INR")
-  baseAmount           Decimal?                  @db.Decimal(15, 2)
-  subtotal             Decimal                   @default(0.00) @db.Decimal(15, 2)
-  discount             Decimal                   @default(0.00) @db.Decimal(15, 2)
-  taxAmount            Decimal                   @default(0.00) @db.Decimal(15, 2)
-  shippingCost         Decimal                   @default(0.00) @db.Decimal(15, 2)
-  totalAmount          Decimal                   @db.Decimal(15, 2)
-  paidAmount           Decimal                   @default(0.00) @db.Decimal(15, 2)
-  balanceDue           Decimal                   @default(0.00) @db.Decimal(15, 2)
-  effectiveTax         Decimal?                  @default(0.00)
-  status               String                    @default("UNPAID")
-  category             String                    @default("OTHER")
+  currency             String        @default("USD")
+  exchangeRate         Decimal?      @db.Decimal(10, 4)
+  baseCurrency         String?       @default("INR")
+  baseAmount           Decimal?      @db.Decimal(15, 2)
+  subtotal             Decimal       @default(0.00) @db.Decimal(15, 2)
+  discount             Decimal       @default(0.00) @db.Decimal(15, 2)
+  taxAmount            Decimal       @default(0.00) @db.Decimal(15, 2)
+  shippingCost         Decimal       @default(0.00) @db.Decimal(15, 2)
+  totalAmount          Decimal       @db.Decimal(15, 2)
+  paidAmount           Decimal       @default(0.00) @db.Decimal(15, 2)
+  balanceDue           Decimal       @default(0.00) @db.Decimal(15, 2)
+  effectiveTax         Decimal?      @default(0.00)
+  status               InvoiceStatus @default(UNPAID)
+  category             String        @default("OTHER")
   pdfKey               String?
   sentAt               DateTime?
   paidAt               DateTime?
-  sellerName           String?                   @db.Citext
+  sellerName           String?       @db.Citext
   sellerStreetAddress  String?
   sellerCity           String?
   sellerState          String?
   sellerZipCode        String?
   sellerCountry        String?
-  sellerEmail          String?                   @db.Citext
+  sellerEmail          String?       @db.Citext
   sellerPhone          String?
   sellerTaxId          String?
   sellerTaxSystem      String?
   iecCode              String?
-  lutFiled             Boolean                   @default(false)
-  taxType              String                    @default("NONE")
+  lutFiled             Boolean       @default(false)
+  taxType              String        @default("NONE")
   placeOfSupply        String?
-  reverseCharge        Boolean                   @default(false)
+  reverseCharge        Boolean       @default(false)
   reverseReason        String?
   sacCode              String?
   taxSummary           Json?
@@ -179,31 +184,56 @@ model InvoiceBill {
   jurisdiction         String?
   lateFeePolicy        String?
   notes                String?
-  pdfStatus            String                    @default("NOT_STARTED")
+  // Supplied by the client, one per invoice dialog and reused on every retry.
+  // It is the only thing that lets a retry re-identify its own request when the
+  // response to the original never arrived - without it that retry creates a
+  // second invoice. Scoped to the org so one tenant's key can never resolve to
+  // another tenant's invoice.
+  idempotencyKey       String?
+  pdfStatus            PdfStatus     @default(NOT_STARTED)
+  // Crash-safety for PDF generation. A worker claims a job by setting
+  // pdfLeaseExpiresAt; if it dies, the lease expires and the sweeper hands the
+  // row back instead of leaving it stuck in PROCESSING forever.
+  pdfLeaseExpiresAt    DateTime?
+  pdfAttempts          Int           @default(0)
+  // Set before the email is sent, so a redelivered job can never send a second
+  // copy to the client.
+  emailSentAt          DateTime?
+  emailStatus          EmailStatus   @default(NOT_REQUESTED)
+  emailError           String?
   confirmedAt          DateTime?
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
-  items                InvoiceBillItem[]
-  customFields         InvoiceCustomFieldValue[]
-  client               Client?                   @relation(fields: [clientId], references: [id])
-  customer             User                      @relation(fields: [customerId], references: [id])
-  organization         Organization              @relation(fields: [orgId], references: [id])
 
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById BigInt?
+  updatedById BigInt?
+
+  items        InvoiceBillItem[]
+  customFields InvoiceCustomFieldValue[]
+  client       Client?                   @relation(fields: [clientId], references: [id])
+  createdBy    User?                     @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?                     @relation("InvoiceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  organization Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, idempotencyKey])
   @@index([clientId])
+  @@index([createdById, issueDate])
   @@map("invoice_bills")
 }
 
 model InvoiceCustomFieldValue {
-  id            BigInt                @id @default(autoincrement())
+  id            BigInt @id @default(autoincrement())
+  orgId         BigInt
   invoiceId     BigInt
   customFieldId BigInt
-  orgId         BigInt
   value         String
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  customField   CustomFieldDefinition @relation(fields: [customFieldId], references: [id])
-  invoice       InvoiceBill           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  organization  Organization          @relation(fields: [orgId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customField  CustomFieldDefinition @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  invoice      InvoiceBill           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([invoiceId, customFieldId])
   @@index([invoiceId])
@@ -223,7 +253,7 @@ model InvoiceBillItem {
   totalPrice  Decimal     @db.Decimal(10, 2)
   createdAt   DateTime    @default(now())
   unitType    String?     @default("UNIT")
-  invoice     InvoiceBill @relation(fields: [invoiceId], references: [id])
+  invoice     InvoiceBill @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@map("invoice_bill_items")
 }
@@ -231,7 +261,8 @@ model InvoiceBillItem {
 model ExpenseBill {
   id            BigInt            @id @default(autoincrement())
   orgId         BigInt
-  userId        BigInt?
+  createdById   BigInt?
+  updatedById   BigInt?
   merchant      String?
   expenseDate   DateTime
   totalAmount   Decimal           @db.Decimal(15, 2)
@@ -244,10 +275,11 @@ model ExpenseBill {
   updatedAt     DateTime          @updatedAt
   totalTax      Decimal?          @default(0.00) @db.Decimal(15, 2)
   items         ExpenseBillItem[]
-  organization  Organization      @relation(fields: [orgId], references: [id])
-  user          User?             @relation(fields: [userId], references: [id])
+  organization  Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy     User?             @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?             @relation("ExpenseUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
-  @@index([userId])
+  @@index([createdById])
   @@index([orgId])
   @@map("expense_bills")
 }
@@ -280,7 +312,7 @@ model KpiSnapshot {
   topExpenseCategory     String?
   expenseGrowthPercent   Decimal?     @db.Decimal(15, 2)
   createdAt              DateTime     @default(now())
-  organization           Organization @relation(fields: [orgId], references: [id])
+  organization           Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([orgId, snapshotDate])
   @@map("kpi_snapshots")
@@ -315,7 +347,7 @@ model CAProfile {
   analytics       CAAnalytics[]
   bookings        CABooking[]
   documents       CADocument[]
-  user            User          @relation(fields: [userId], references: [id])
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   reviews         CAReview[]
   slots           CASlot[]
 
@@ -338,7 +370,7 @@ model CADocument {
   createdAt   DateTime       @default(now())
   description String?
   mimeType    String?
-  caProfile   CAProfile      @relation(fields: [caProfileId], references: [id])
+  caProfile   CAProfile      @relation(fields: [caProfileId], references: [id], onDelete: Cascade)
 
   @@map("ca_documents")
 }
@@ -371,9 +403,9 @@ model CABooking {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  caProfile CAProfile @relation(fields: [caProfileId], references: [id])
-  user      User      @relation(fields: [userId], references: [id])
-  slot      CASlot    @relation(fields: [slotId], references: [id])
+  caProfile CAProfile @relation(fields: [caProfileId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slot      CASlot    @relation(fields: [slotId], references: [id], onDelete: Cascade)
 
   payment CAPayment?
   review  CAReview?
@@ -429,7 +461,7 @@ model CADocumentPending {
 
   createdAt DateTime @default(now())
 
-  pendingProfile CAProfilePending @relation(fields: [pendingId], references: [id])
+  pendingProfile CAProfilePending @relation(fields: [pendingId], references: [id], onDelete: Cascade)
 
   @@map("ca_documents_pending")
 }
@@ -451,7 +483,7 @@ model CAPayment {
   status           PaymentStatus @default(CREATED)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  booking          CABooking     @relation(fields: [bookingId], references: [id])
+  booking          CABooking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@map("ca_payments")
 }
@@ -465,9 +497,9 @@ model CAReview {
   comment     String?
   isVisible   Boolean   @default(true)
   createdAt   DateTime  @default(now())
-  booking     CABooking @relation(fields: [bookingId], references: [id])
-  caProfile   CAProfile @relation(fields: [caProfileId], references: [id])
-  user        User      @relation(fields: [userId], references: [id])
+  booking     CABooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  caProfile   CAProfile @relation(fields: [caProfileId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([caProfileId])
   @@map("ca_reviews")
@@ -480,7 +512,7 @@ model CAAnalytics {
   profileViews  Int       @default(0)
   bookingsCount Int       @default(0)
   earnings      Decimal   @db.Decimal(15, 2)
-  caProfile     CAProfile @relation(fields: [caProfileId], references: [id])
+  caProfile     CAProfile @relation(fields: [caProfileId], references: [id], onDelete: Cascade)
 
   @@unique([caProfileId, snapshotDate])
   @@map("ca_analytics_snapshots")
@@ -497,7 +529,7 @@ model CASlot {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  caProfile CAProfile   @relation(fields: [caProfileId], references: [id])
+  caProfile CAProfile   @relation(fields: [caProfileId], references: [id], onDelete: Cascade)
   bookings  CABooking[] // ✅ one-to-many
 
   @@index([caProfileId, day])
@@ -589,6 +621,32 @@ enum TaxSystem {
   VAT
   SALES
   NONE
+}
+
+// Payment state only. Whether the invoice has been delivered is a separate
+// question, answered by the sentAt timestamp - which also records when.
+enum InvoiceStatus {
+  DRAFT // Saved but not issued. Never counts as revenue - see chat-rls-setup.sql
+  UNPAID // Issued and awaiting payment
+  PAID // Settled in full
+  OVERDUE // UNPAID and past dueDate - set in bulk by markOverdueInvoices()
+}
+
+// Delivery of the invoice email. Deliberately separate from PdfStatus: a failed
+// send must not cost a finished PDF, and the two are retried independently.
+enum EmailStatus {
+  NOT_REQUESTED // The invoice was issued without asking for an email
+  PENDING // Claimed by a worker, send in progress
+  SENT // Accepted by the mail provider
+  FAILED // Send failed, or a worker died mid-send - safe to retry by hand
+}
+
+enum PdfStatus {
+  NOT_STARTED // No PDF has been asked for - a draft, or an invoice not yet confirmed
+  QUEUED // Handed to QStash, not yet picked up
+  PROCESSING // A worker is generating it right now
+  READY // Generated and uploaded; pdfKey is set
+  FAILED // Exhausted QStash retries, or publishing the job never succeeded - safe to re-queue
 }
 
 enum CAStatus {

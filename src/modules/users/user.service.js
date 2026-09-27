@@ -353,14 +353,26 @@ exports.deleteSubAccount = async (admin, targetUserId) => {
   await prisma.$transaction(async (tx) => {
     // Re-assign invoices to the org owner
     await tx.invoiceBill.updateMany({
-      where: { customerId: BigInt(targetUserId) },
-      data: { customerId: BigInt(admin.userId) }
+      where: { createdById: BigInt(targetUserId) },
+      data: { createdById: BigInt(admin.userId) }
     });
 
     // Nullify expenses associated with the user
     await tx.expenseBill.updateMany({
-      where: { userId: BigInt(targetUserId) },
-      data: { userId: null }
+      where: { createdById: BigInt(targetUserId) },
+      data: { createdById: null }
+    });
+
+    // The deleted user may also be recorded as the last editor on rows they
+    // no longer own. Clear those too, or the FK blocks the delete below.
+    await tx.invoiceBill.updateMany({
+      where: { updatedById: BigInt(targetUserId) },
+      data: { updatedById: null }
+    });
+
+    await tx.expenseBill.updateMany({
+      where: { updatedById: BigInt(targetUserId) },
+      data: { updatedById: null }
     });
 
     // Delete the user

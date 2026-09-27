@@ -188,7 +188,7 @@ exports.saveExpenseFromPreview = async (user, payload) => {
     const expense = await tx.expenseBill.create({
       data: {
         orgId: BigInt(user.orgId),
-        userId: BigInt(user.userId),
+        createdById: BigInt(user.userId),
         merchant: payload.merchant ?? null,
         expenseDate: payload.expenseDate
           ? new Date(payload.expenseDate)
@@ -299,6 +299,7 @@ exports.updateExpense = async (user, expenseId, payload) => {
     await tx.expenseBill.update({
       where: { id: expense.id },
       data: {
+        updatedById: BigInt(user.userId),
         merchant: payload.merchant ?? expense.merchant,
         expenseDate: payload.expenseDate
           ? new Date(payload.expenseDate)

@@ -13,7 +13,7 @@ const getTotalInvoiceTax = tool(
       SELECT COALESCE(SUM((i."totalPrice" * i."taxRate") / 100), 0) AS total_tax
       FROM invoice_bill_items i
       JOIN invoice_bills b ON b.id = i."invoiceId"
-      WHERE b."customerId" = ${BigInt(userId)}
+      WHERE b."createdById" = ${BigInt(userId)}
     `;
 
     return {

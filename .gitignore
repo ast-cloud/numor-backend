@@ -16,5 +16,9 @@ log/
 *.log
 src/log/
 
+# Deletion manifests from scripts/delete-organization.js - contain user emails
+# and storage keys for orgs that have been torn down.
+.deleted-orgs/
+
 !src/log/
 !src/log/**

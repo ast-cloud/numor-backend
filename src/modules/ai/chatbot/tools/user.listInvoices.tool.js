@@ -15,7 +15,7 @@ const getInvoices = tool(
     }
 
     const where = {
-      customerId: BigInt(userId),
+      createdById: BigInt(userId),
       ...(status ? { status } : {}),
     };
 
@@ -67,7 +67,7 @@ IMPORTANT RULES:
       properties: {
         status: {
           type: "string",
-          enum: ["DRAFT", "SENT", "PAID", "OVERDUE", "UNPAID"],
+          enum: ["DRAFT", "UNPAID", "PAID", "OVERDUE"],
         },
         limit: { type: "number" },
       },

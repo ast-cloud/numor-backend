@@ -3,29 +3,64 @@ const prisma = require("../config/database");
 const pdfService = require("../services/pdf.service");
 const storage = require("../storage/storage.service");
 const emailService = require('../services/email.service');
-const { content } = require("googleapis/build/src/apis/content");
+const dayjs = require("dayjs");
+
+// How long a worker may hold a job before the sweeper assumes it died.
+// Must be longer than a cold Puppeteer launch plus PDF generation.
+const PDF_LEASE_MS = 5 * 60 * 1000;
+
+// Statuses a job can be picked up from. PROCESSING is missing on purpose: a
+// PROCESSING row is only claimable once its lease has expired (see below).
+const CLAIMABLE_PDF_STATUSES = ["NOT_STARTED", "QUEUED", "FAILED"];
 
 exports.process = async (invoiceId, sendEmail) => {
   const id = BigInt(invoiceId);
 
-  // 🔒 Idempotency guard
+  // If we crash before the claim below, nothing has changed in the database and
+  // QStash simply delivers the job again.
+
+  // Claim the job: mark it PROCESSING and record a lease (a deadline by which we
+  // promise to finish). Doing it in one updateMany means only one worker can win
+  // - the others get count 0. A read-then-write would let two deliveries both
+  // pass the check and run the job twice.
+  //
+  // We also save the lease value, because the final write only applies if the row
+  // still has this exact lease. That is how we detect that someone changed the
+  // invoice while we were rendering.
+  const pdfLease = new Date(Date.now() + PDF_LEASE_MS);
+
+  const claim = await prisma.invoiceBill.updateMany({
+    where: {
+      id,
+      OR: [
+        { pdfStatus: { in: CLAIMABLE_PDF_STATUSES } },
+        { pdfStatus: "PROCESSING", pdfLeaseExpiresAt: { lt: new Date() } },
+      ],
+    },
+    data: {
+      pdfStatus: "PROCESSING",
+      pdfLeaseExpiresAt: pdfLease,
+      pdfAttempts: { increment: 1 },
+    },
+  });
+
+  if (claim.count === 0) {
+    // The job is already done, or another worker is on it. Return normally
+    // instead of throwing, so QStash treats it as handled and stops retrying.
+    return;
+  }
+
+  // If we crash from here on, nobody updates the row again. The lease expires,
+  // and the sweeper sets the invoice to FAILED so it can be queued again.
+
   const invoice = await prisma.invoiceBill.findUnique({
     where: { id },
-    include: { items: true, organization: true, client: true, customer: true, customFields: { include: { customField: true } } },
+    include: { items: true, organization: true, client: true, createdBy: true, customFields: { include: { customField: true } } },
   });
 
   if (!invoice) {
     throw new Error(`Invoice not found: ${invoiceId}`);
   }
-
-  if (invoice.pdfStatus === "READY") {
-    return; // already processed
-  }
-
-  await prisma.invoiceBill.update({
-    where: { id },
-    data: { pdfStatus: "PROCESSING" },
-  });
 
   let organizationLogoUrl = "";
   if (invoice.organization?.logoUrl) {
@@ -43,77 +78,152 @@ exports.process = async (invoiceId, sendEmail) => {
 
   const path = `invoices/${invoice.orgId}/${invoice.invoiceNumber}.pdf`;
   const pdfKey = await storage.upload(path, pdfBuffer);
-  // console.log("sendEmail flag in process function:", sendEmail);
-  if (sendEmail) {
-    try {
-      if (!invoice.customer?.email) {
-        console.warn("Skipping email: customer email missing");
-        return;
-      }
-      console.log(`Sending invoice email to ${invoice.customer?.email} with PDF key ${pdfKey}`);
 
-      const cleanBuffer = Buffer.from(pdfBuffer);
-      const base64Pdf = cleanBuffer.toString("base64");
+  // If we crash after uploading but before saving below, the file is left in
+  // storage unused. That is harmless: the filename is built from the invoice
+  // number, so the next run writes over it.
 
-      const customerName = invoice.customer?.name || "there";
-
-      const subject = `Invoice ${invoice.invoiceNumber} from Numor`;
-
-      const html = `
-      <p>Hi ${customerName},</p>
-      <p>Your invoice <strong>#${invoice.invoiceNumber}</strong> is ready.</p>
-      <p>Please find the invoice attached to this email.</p>
-      <br/>
-      <p>
-        Thanks,<br/>
-        <strong>Team Numor</strong><br/>
-        <a href="https://numor.app">https://numor.app</a>
-      </p>
-    `;
-      const text = `
-        Hi ${customerName},
-        Your invoice #${invoice.invoiceNumber} is ready.
-        Please find the invoice attached.
-        If you have any questions, just reply to this email.
-        Thanks,
-        Team Numor
-        https://numor.app
-        `;
-
-      const res = await emailService.sendEmailWithAttachment({
-        to: invoice.customer.email,
-        subject,
-        html,
-        text,
-        attachments: [
-          {
-            filename: `Invoice-${invoice.invoiceNumber}.pdf`,
-            content: base64Pdf,
-          },
-        ],
-      });
-
-      console.log("Email sent response:", res);
-
-    } catch (err) {
-      console.error("Email sending failed:", {
-        message: err.message,
-        stack: err.stack,
-        invoiceId: invoice.id,
-      });
-    }
-  }
-
-  await prisma.invoiceBill.update({
-    where: { id },
+  // Save the PDF now, before sending any email, so that a failed email never
+  // loses a PDF we already made.
+  //
+  // The lease check in `where` is important: if someone edited this invoice while
+  // we were rendering, they cleared the lease, so this update matches no rows and
+  // our out-of-date PDF is thrown away instead of being saved.
+  //
+  // This is also the moment the invoice counts as issued, so it moves from DRAFT
+  // to UNPAID here.
+  const committed = await prisma.invoiceBill.updateMany({
+    where: { id, pdfLeaseExpiresAt: pdfLease },
     data: {
       pdfStatus: "READY",
       pdfKey,
-      status: "UNPAID", // Update status to UNPAID when PDF is ready
+      pdfLeaseExpiresAt: null,
+      status: invoice.status === "DRAFT" ? "UNPAID" : invoice.status,
+      confirmedAt: invoice.confirmedAt ?? new Date(),
     },
   });
+
+  if (committed.count === 0) {
+    // Our PDF is out of date. Someone else is generating a newer one, so just
+    // stop here.
+    console.log(`Discarding stale render for invoice ${invoice.invoiceNumber}`);
+    return;
+  }
+
+  if (!sendEmail) {
+    return;
+  }
+
+  // The email goes to the client being billed, not to the Numor user who made
+  // the invoice.
+  const recipientEmail = invoice.client?.email;
+
+  if (!recipientEmail) {
+    await prisma.invoiceBill.updateMany({
+      where: { id, emailStatus: { in: ["NOT_REQUESTED", "FAILED"] } },
+      data: { emailStatus: "FAILED", emailError: "Client has no email address" },
+    });
+    console.warn(
+      `Skipping invoice email for ${invoice.invoiceNumber}: client has no email address`
+    );
+    return;
+  }
+
+  // Claim the email the same way we claimed the job: only one worker can move it
+  // from NOT_REQUESTED/FAILED to PENDING. Email needs its own claim because
+  // sending is the one action we cannot undo - two workers must never both send.
+  const emailClaim = await prisma.invoiceBill.updateMany({
+    where: { id, emailStatus: { in: ["NOT_REQUESTED", "FAILED"] } },
+    data: { emailStatus: "PENDING", emailError: null },
+  });
+
+  if (emailClaim.count === 0) {
+    console.log(
+      `Invoice ${invoice.invoiceNumber} email already sent or in flight - skipping`
+    );
+    return;
+  }
+
+  // If we crash while sending, the row stays PENDING. After 10 minutes the
+  // sweeper marks it FAILED and the invoice row shows a "Retry sending email"
+  // button. We never re-send by ourselves, because the first email may well have
+  // gone out - only a person can decide it did not arrive.
+  try {
+    const cleanBuffer = Buffer.from(pdfBuffer);
+    const base64Pdf = cleanBuffer.toString("base64");
+
+    const clientName = invoice.client?.name || "there";
+    const sellerName = invoice.organization?.name || "your supplier";
+    const dueDate = invoice.dueDate
+      ? dayjs(invoice.dueDate).format("DD MMM YYYY")
+      : null;
+    const amount = `${invoice.currency} ${Number(invoice.totalAmount).toFixed(2)}`;
+
+    const subject = `Invoice ${invoice.invoiceNumber} from ${sellerName}`;
+
+    const html = `
+      <p>Hi ${clientName},</p>
+      <p>Please find attached invoice <strong>#${invoice.invoiceNumber}</strong> from <strong>${sellerName}</strong>.</p>
+      <p>
+        Amount due: <strong>${amount}</strong>${dueDate ? `<br/>Due by: <strong>${dueDate}</strong>` : ""}
+      </p>
+      <p>If you have any questions about this invoice, just reply to this email.</p>
+      <br/>
+      <p>
+        Thanks,<br/>
+        <strong>${sellerName}</strong>
+      </p>
+    `;
+    const text = `
+        Hi ${clientName},
+        Please find attached invoice #${invoice.invoiceNumber} from ${sellerName}.
+        Amount due: ${amount}${dueDate ? `\nDue by: ${dueDate}` : ""}
+        If you have any questions about this invoice, just reply to this email.
+        Thanks,
+        ${sellerName}
+        `;
+
+    await emailService.sendEmailWithAttachment({
+      to: recipientEmail,
+      // Replies should go to the user who made the invoice, not to our shared
+      // sending address.
+      replyTo: invoice.createdBy?.email || undefined,
+      subject,
+      html,
+      text,
+      attachments: [
+        {
+          filename: `Invoice-${invoice.invoiceNumber}.pdf`,
+          content: base64Pdf,
+        },
+      ],
+    });
+
+    await prisma.invoiceBill.update({
+      where: { id },
+      data: { emailStatus: "SENT", emailSentAt: new Date(), emailError: null },
+    });
+
+    console.log(`Invoice ${invoice.invoiceNumber} emailed to ${recipientEmail}`);
+  } catch (err) {
+    console.error("Email sending failed:", {
+      message: err.message,
+      invoiceId: invoice.id,
+    });
+
+    // Record the failure instead of throwing. The PDF was already saved
+    // successfully, and throwing would make QStash retry the whole job - PDF
+    // included - for something only the email got wrong.
+    await prisma.invoiceBill.update({
+      where: { id },
+      data: { emailStatus: "FAILED", emailError: String(err.message).slice(0, 500) },
+    });
+  }
 };
 
+// QStash sends the bodies base64-encoded when it reports a failure.
+// `sourceBody` is the job payload we originally published (it has the invoiceId).
+// `body` is our own error response, which does not.
 function parsePayloadBody(body) {
   if (!body) return null;
 
@@ -121,22 +231,33 @@ function parsePayloadBody(body) {
     return body;
   }
 
-  if (typeof body === "string") {
-    try {
-      return JSON.parse(body);
-    } catch {
-      return null;
-    }
+  if (typeof body !== "string") {
+    return null;
   }
 
-  return null;
+  // Try plain JSON first, so hitting this endpoint by hand still works.
+  try {
+    return JSON.parse(body);
+  } catch {
+    // Not JSON - fall through and try base64.
+  }
+
+  try {
+    return JSON.parse(Buffer.from(body, "base64").toString("utf-8"));
+  } catch {
+    return null;
+  }
 }
 
 exports.markInvoiceAsFailedFromDlq = async (payload) => {
+
+  const parsedSourceBody = parsePayloadBody(payload?.sourceBody);
   const parsedBody = parsePayloadBody(payload?.body);
-  console.log("Parsed DLQ payload body:", parsedBody);
+  console.log("Parsed DLQ payload body:", { parsedSourceBody, parsedBody });
+
   const invoiceId =
     payload?.invoiceId ??
+    parsedSourceBody?.invoiceId ??
     parsedBody?.invoiceId;
 
   if (!invoiceId) {
@@ -145,48 +266,13 @@ exports.markInvoiceAsFailedFromDlq = async (payload) => {
 
   const id = BigInt(invoiceId);
 
-  await prisma.invoiceBill.update({
-    where: { id },
-    data: { pdfStatus: "DRAFT" },
+  // Only mark it FAILED if it is still QUEUED or PROCESSING. This callback can
+  // arrive late, after a retry has already produced the PDF, and we must not
+  // overwrite a finished invoice with FAILED.
+  await prisma.invoiceBill.updateMany({
+    where: { id, pdfStatus: { in: ["QUEUED", "PROCESSING"] } },
+    data: { pdfStatus: "FAILED", pdfLeaseExpiresAt: null },
   });
 
   return { updated: true, invoiceId: id.toString() };
 };
-
-
-
-async function handleInvoice(invoiceId) {
-  await prisma.invoiceBill.update({
-    where: { id: BigInt(invoiceId) },
-    data: { pdfStatus: 'PROCESSING' }
-  });
-
-  const invoice = await prisma.invoiceBill.findUnique({
-    where: { id: BigInt(invoiceId) },
-    include: { items: true, organization: true, client: true, customFields: { include: { customField: true } } }
-  });
-
-  if (!invoice || invoice.pdfStatus === 'READY') return;
-
-  let organizationLogoUrl = "";
-  if (invoice.organization?.logoUrl) {
-    try {
-      organizationLogoUrl = await storage.getSignedUrl(invoice.organization.logoUrl);
-    } catch (error) {
-      console.warn("Could not sign organization logo URL:", error.message);
-    }
-  }
-
-  const pdfBuffer = await pdfService.generateInvoicePdf({
-    ...invoice,
-    organizationLogoUrl,
-  });
-
-  const path = `invoices/${invoice.orgId}/${invoice.invoiceNumber}.pdf`;
-  const pdfKey = await storage.upload(path, pdfBuffer);
-
-  await prisma.invoiceBill.update({
-    where: { id: BigInt(invoiceId) },
-    data: { pdfStatus: 'READY', pdfKey }
-  });
-}

@@ -16,7 +16,7 @@ const listInvoiceItems = tool(
     const invoice = await prisma.invoiceBill.findFirst({
       where: {
         invoiceNumber: invoiceNumber,
-        customerId: BigInt(userId),
+        createdById: BigInt(userId),
       },
       select: { id: true },
     });

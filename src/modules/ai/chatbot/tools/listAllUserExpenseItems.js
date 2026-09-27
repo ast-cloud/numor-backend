@@ -12,7 +12,7 @@ const listAllUserExpenseItems = tool(
     const items = await prisma.expenseBillItem.findMany({
       where: {
         expense: {
-          userId: BigInt(userId),
+          createdById: BigInt(userId),
         },
       },
       orderBy: {
