@@ -199,6 +199,10 @@ model InvoiceBill {
   // Set before the email is sent, so a redelivered job can never send a second
   // copy to the client.
   emailSentAt          DateTime?
+  // Whether the user asked for this invoice to be emailed. Persisted rather than
+  // carried in the job payload, so a retry - from the row, the sweeper, anywhere
+  // - cannot silently drop the intent.
+  emailRequested       Boolean       @default(false)
   emailStatus          EmailStatus   @default(NOT_REQUESTED)
   emailError           String?
   confirmedAt          DateTime?

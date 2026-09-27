@@ -63,7 +63,7 @@ async function sweepStuckPdfJobs() {
 
   for (const { id } of stale) {
     try {
-      await qstashService.publishInvoicePdfJob({ invoiceId: id, sendEmail: false });
+      await qstashService.publishInvoicePdfJob({ invoiceId: id });
 
       // Touches updatedAt, so the next pass leaves this row alone for now.
       await prisma.invoiceBill.updateMany({

@@ -12,12 +12,13 @@ const INVOICE_FAILURE_CALLBACK_URL = `${BASE_URL}/api/qstash/invoice-pdf-failure
 // CRASH POINT - a network failure here throws to the caller. finalizeInvoice
 // catches it and marks the invoice FAILED rather than leaving it QUEUED with no
 // job, so the next finalize retries it instead of finding a dead end.
-exports.publishInvoicePdfJob = async ({ invoiceId, sendEmail }) => {
+// No sendEmail in the payload: the worker reads invoice.emailRequested instead,
+// so a retry published from anywhere keeps the user's original intent.
+exports.publishInvoicePdfJob = async ({ invoiceId }) => {
   const res = await qstash.publishJSON({
     url: INVOICE_PROCESS_URL,
     body: {
-      invoiceId: invoiceId.toString(),
-      sendEmail
+      invoiceId: invoiceId.toString()
     },
     failureCallback: INVOICE_FAILURE_CALLBACK_URL,
     retries: 5,     // automatic retries

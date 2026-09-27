@@ -13,7 +13,7 @@ const PDF_LEASE_MS = 5 * 60 * 1000;
 // PROCESSING row is only claimable once its lease has expired (see below).
 const CLAIMABLE_PDF_STATUSES = ["NOT_STARTED", "QUEUED", "FAILED"];
 
-exports.process = async (invoiceId, sendEmail) => {
+exports.process = async (invoiceId) => {
   const id = BigInt(invoiceId);
 
   // If we crash before the claim below, nothing has changed in the database and
@@ -110,7 +110,9 @@ exports.process = async (invoiceId, sendEmail) => {
     return;
   }
 
-  if (!sendEmail) {
+  // The intent comes from the invoice, not the job payload, so a retry from the
+  // row or the sweeper still emails the client if that is what was asked for.
+  if (!invoice.emailRequested) {
     return;
   }
 

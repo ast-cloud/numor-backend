@@ -12,14 +12,14 @@ const pdfSweeper = require("./pdf-sweeper.service");
 // attempts, then the DLQ posts to /invoice-pdf-failure and the row is marked
 // FAILED - re-queueable, so the user's retry can still recover it.
 exports.processInvoicePdf = async (req, res) => {
-  const { invoiceId, sendEmail } = req.body;
+  const { invoiceId } = req.body;
 
   if (!invoiceId) {
     return res.status(400).json({ error: "invoiceId is required" });
   }
 
   try {
-    await invoicePdfService.process(invoiceId, sendEmail);
+    await invoicePdfService.process(invoiceId);
 
     return res.status(200).json({
       success: true,

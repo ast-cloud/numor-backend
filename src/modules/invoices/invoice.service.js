@@ -565,7 +565,13 @@ async function finalizeInvoice(loggedInUser, id, { sendEmail = false } = {}) {
     // still here, and a later write would clobber its READY.
     let queued = await prisma.invoiceBill.update({
         where: { id: invoiceId },
-        data: { pdfStatus: "QUEUED", pdfLeaseExpiresAt: null },
+        data: {
+            pdfStatus: "QUEUED",
+            pdfLeaseExpiresAt: null,
+            // undefined leaves it alone, so the flag only ever turns on: a retry
+            // that forgets to ask for email cannot cancel the original request.
+            emailRequested: sendEmail || undefined,
+        },
         select: INVOICE_STATE,
     });
 
@@ -577,7 +583,7 @@ async function finalizeInvoice(loggedInUser, id, { sendEmail = false } = {}) {
     //
     // This gap exists because no transaction can span Postgres and QStash.
     try {
-        await qstashService.publishInvoicePdfJob({ invoiceId, sendEmail });
+        await qstashService.publishInvoicePdfJob({ invoiceId });
     } catch (err) {
         console.error("QStash publish failed:", err);
 
@@ -625,7 +631,7 @@ async function resendInvoiceEmail(loggedInUser, id) {
     // every sender takes the same claim path.
     const reset = await prisma.invoiceBill.update({
         where: { id: invoiceId },
-        data: { emailStatus: "FAILED", emailError: null },
+        data: { emailStatus: "FAILED", emailError: null, emailRequested: true },
         select: INVOICE_STATE,
     });
 
@@ -653,6 +659,8 @@ async function getInvoiceStatus(loggedInUser, id) {
             pdfKey: true,
             emailStatus: true,
             emailError: true,
+            emailSentAt: true,
+            emailRequested: true,
         },
     });
 
@@ -675,11 +683,19 @@ async function getInvoiceStatus(loggedInUser, id) {
         pdfStatus: invoice.pdfStatus,
         emailStatus: invoice.emailStatus,
         emailError: invoice.emailError,
+        emailSentAt: invoice.emailSentAt,
+        emailRequested: invoice.emailRequested,
         pdfUrl,
         // Both lifecycles settled - stop polling.
+        //
+        // NOT_REQUESTED is only terminal when no email was asked for. When one
+        // was, it means the worker has not claimed the send yet - the client
+        // must keep polling or it never learns the mail went out.
         settled:
             ["READY", "FAILED"].includes(invoice.pdfStatus) &&
-            ["NOT_REQUESTED", "SENT", "FAILED"].includes(invoice.emailStatus),
+            (invoice.emailRequested
+                ? ["SENT", "FAILED"].includes(invoice.emailStatus)
+                : ["NOT_REQUESTED", "SENT", "FAILED"].includes(invoice.emailStatus)),
     };
 }
 
