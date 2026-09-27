@@ -630,7 +630,10 @@ async function resendInvoiceEmail(loggedInUser, id) {
     });
 
     try {
-        await qstashService.publishInvoicePdfJob({ invoiceId, sendEmail: true });
+        // The email-only job, not the PDF one: process() starts by claiming the
+        // PDF, and this invoice is already READY, so that job would be discarded
+        // before it ever reached the sending code.
+        await qstashService.publishInvoiceEmailJob({ invoiceId });
     } catch (err) {
         console.error("QStash publish failed (email retry):", err);
         throw new Error("Could not queue the email. Please try again.");

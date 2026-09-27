@@ -34,6 +34,24 @@ exports.processInvoicePdf = async (req, res) => {
   }
 };
 
+// Email-only job. Returns 200 even when there is nothing to do, so QStash stops
+// redelivering; a genuine send failure is recorded on the invoice, not thrown.
+exports.sendInvoiceEmail = async (req, res) => {
+  const { invoiceId } = req.body;
+
+  if (!invoiceId) {
+    return res.status(400).json({ error: "invoiceId is required" });
+  }
+
+  try {
+    await invoicePdfService.sendEmail(invoiceId);
+    return res.status(200).json({ success: true, invoiceId });
+  } catch (err) {
+    console.error("Invoice email job failed:", err);
+    return res.status(500).json({ error: "Invoice email failed" });
+  }
+};
+
 exports.processInvoicePdfFailure = async (req, res) => {
   try {
     const result = await invoicePdfService.markInvoiceAsFailedFromDlq(req.body);

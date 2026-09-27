@@ -9,6 +9,11 @@ router.post(
 );
 
 router.post(
+  "/send-invoice-email",
+  internalController.sendInvoiceEmail
+);
+
+router.post(
   "/invoice-pdf-failure",
   internalController.processInvoicePdfFailure
 );

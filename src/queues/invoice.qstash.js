@@ -6,6 +6,7 @@ const qstash = new Client({
 });
 
 const INVOICE_PROCESS_URL = `${BASE_URL}/api/qstash/process-invoice-pdf`;
+const INVOICE_EMAIL_URL = `${BASE_URL}/api/qstash/send-invoice-email`;
 const INVOICE_FAILURE_CALLBACK_URL = `${BASE_URL}/api/qstash/invoice-pdf-failure`;
 
 // CRASH POINT - a network failure here throws to the caller. finalizeInvoice
@@ -23,6 +24,19 @@ exports.publishInvoicePdfJob = async ({ invoiceId, sendEmail }) => {
     delay: 0,       // immediate execution
   });
   return res;
+};
+
+// Email-only job, for an invoice whose PDF already exists. The PDF job cannot be
+// reused here: it begins by claiming the PDF, and a READY invoice is not
+// claimable, so the job would be dropped before reaching the email step.
+exports.publishInvoiceEmailJob = async ({ invoiceId }) => {
+  return qstash.publishJSON({
+    url: INVOICE_EMAIL_URL,
+    body: { invoiceId: invoiceId.toString() },
+    failureCallback: INVOICE_FAILURE_CALLBACK_URL,
+    retries: 3,
+    delay: 0,
+  });
 };
 
 exports.publishExpensePdfToStorage = async ({ invoiceId }) => {
