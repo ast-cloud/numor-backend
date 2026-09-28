@@ -473,6 +473,13 @@ function buildInvoiceFields(user, data, totals) {
 // discards the body, so loading items and custom fields back out is wasted work.
 const INVOICE_STATE = { id: true, status: true, pdfStatus: true, emailStatus: true };
 
+function readInvoiceState(invoiceId) {
+    return prisma.invoiceBill.findUniqueOrThrow({
+        where: { id: BigInt(invoiceId) },
+        select: INVOICE_STATE,
+    });
+}
+
 // Creates only - never issues. finalizeInvoice() is a separate request made once
 // the client holds the id. idempotencyKey covers the gap before that: the unique
 // index on (orgId, idempotencyKey) resolves a retry to the row it already made.
@@ -622,18 +629,25 @@ async function resendInvoiceEmail(loggedInUser, id) {
         throw new Error("This client has no email address on file");
     }
 
-    if (invoice.emailStatus === "PENDING") {
-        // Already in flight; queueing another risks two mails.
-        return invoice;
-    }
-
-    // FAILED, not PENDING: the worker claims by moving FAILED -> PENDING, so
-    // every sender takes the same claim path.
-    const reset = await prisma.invoiceBill.update({
-        where: { id: invoiceId },
-        data: { emailStatus: "FAILED", emailError: null, emailRequested: true },
-        select: INVOICE_STATE,
+    // Take the claim here rather than leaving it to the worker. PENDING means "a
+    // send is underway", which is true from the moment the button is clicked, so
+    // the caller gets an honest status straight away.
+    //
+    // This used to park the row at FAILED as a placeholder until the worker
+    // claimed it a second later - which showed the user "Email sending failed"
+    // for a send that was about to succeed.
+    //
+    // Conditional, so it doubles as the lock: two quick clicks, or a PDF job
+    // already emailing, leave only one sender holding PENDING.
+    const claimed = await prisma.invoiceBill.updateMany({
+        where: { id: invoiceId, emailStatus: { not: "PENDING" } },
+        data: { emailStatus: "PENDING", emailError: null, emailRequested: true },
     });
+
+    if (claimed.count === 0) {
+        // Someone else is already sending; a second job would risk two mails.
+        return readInvoiceState(invoiceId);
+    }
 
     try {
         // The email-only job, not the PDF one: process() starts by claiming the
@@ -642,10 +656,18 @@ async function resendInvoiceEmail(loggedInUser, id) {
         await qstashService.publishInvoiceEmailJob({ invoiceId });
     } catch (err) {
         console.error("QStash publish failed (email retry):", err);
+
+        // Nothing will pick the claim up, so hand it back rather than leaving the
+        // invoice stuck on "Sending..." until the sweeper times it out.
+        await prisma.invoiceBill.update({
+            where: { id: invoiceId },
+            data: { emailStatus: "FAILED", emailError: "Could not queue the email" },
+        });
+
         throw new Error("Could not queue the email. Please try again.");
     }
 
-    return reset;
+    return readInvoiceState(invoiceId);
 }
 
 // Cheap enough to poll per row. getInvoice() loads items and custom fields.
