@@ -31,6 +31,7 @@ model Organization {
   customFieldValues      InvoiceCustomFieldValue[]
   customUnitsInvoice     String[]                  @default([])
   activeUnitsInvoice     String[]                  @default([])
+  paymentAccounts        PaymentAccount[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -92,9 +93,9 @@ model CustomFieldDefinition {
   orgId            BigInt
   name             String
   predefinedValues String[] @default([])
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organization Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
   values       InvoiceCustomFieldValue[]
@@ -102,6 +103,31 @@ model CustomFieldDefinition {
   @@unique([orgId, name])
   @@index([orgId])
   @@map("custom_field_definitions")
+}
+
+model PaymentAccount {
+  id       BigInt @id @default(autoincrement())
+  orgId    BigInt
+  // What the user picks from in the invoice dialog, e.g. "HDFC Current".
+  nickname String
+
+  bankName      String?
+  accountName   String?
+  // IBAN outside India, plain account number within it. One column either way,
+  // because an invoice only ever prints one of the two.
+  accountNumber String?
+  ifsc          String?
+  swift         String?
+  bankAddress   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, nickname])
+  @@index([orgId])
+  @@map("payment_accounts")
 }
 
 model Client {
@@ -119,57 +145,80 @@ model Client {
   companyType   String?
   taxId         String?
   taxSystem     TaxSystem     @default(NONE)
-  isActive      Boolean       @default(true)
+  // Soft delete. A hard delete took the invoices with it: invoice_bills.clientId
+  // is ON DELETE SET NULL, so removing a client silently wiped it from every
+  // invoice that ever billed them. Every query here filters deletedAt: null.
+  deletedAt     DateTime?
+  // The user who deleted it. A plain audit stamp, deliberately not a relation:
+  // it must survive that user being removed.
+  deletedBy     BigInt?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   organization  Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
   invoices      InvoiceBill[]
 
   @@index([orgId])
+  @@index([orgId, deletedAt])
   @@map("clients")
 }
 
 model InvoiceBill {
-  id                   BigInt        @id @default(autoincrement())
-  orgId                BigInt
-  clientId             BigInt?
-  invoiceNumber        String
-  invoiceType          String        @default("TAX")
-  issueDate            DateTime
-  dueDate              DateTime
-  paymentTerms         String?
-  currency             String        @default("USD")
-  exchangeRate         Decimal?      @db.Decimal(10, 4)
-  baseCurrency         String?       @default("INR")
-  baseAmount           Decimal?      @db.Decimal(15, 2)
-  subtotal             Decimal       @default(0.00) @db.Decimal(15, 2)
-  discount             Decimal       @default(0.00) @db.Decimal(15, 2)
-  taxAmount            Decimal       @default(0.00) @db.Decimal(15, 2)
-  shippingCost         Decimal       @default(0.00) @db.Decimal(15, 2)
-  totalAmount          Decimal       @db.Decimal(15, 2)
-  paidAmount           Decimal       @default(0.00) @db.Decimal(15, 2)
-  balanceDue           Decimal       @default(0.00) @db.Decimal(15, 2)
-  effectiveTax         Decimal?      @default(0.00)
-  status               InvoiceStatus @default(UNPAID)
-  category             String        @default("OTHER")
-  pdfKey               String?
-  sentAt               DateTime?
-  paidAt               DateTime?
-  sellerName           String?       @db.Citext
-  sellerStreetAddress  String?
-  sellerCity           String?
-  sellerState          String?
-  sellerZipCode        String?
-  sellerCountry        String?
-  sellerEmail          String?       @db.Citext
-  sellerPhone          String?
-  sellerTaxId          String?
-  sellerTaxSystem      String?
+  id                  BigInt        @id @default(autoincrement())
+  orgId               BigInt
+  clientId            BigInt?
+  invoiceNumber       String
+  invoiceType         String        @default("TAX")
+  issueDate           DateTime
+  dueDate             DateTime
+  paymentTerms        String?
+  currency            String        @default("USD")
+  exchangeRate        Decimal?      @db.Decimal(10, 4)
+  baseCurrency        String?       @default("INR")
+  baseAmount          Decimal?      @db.Decimal(15, 2)
+  subtotal            Decimal       @default(0.00) @db.Decimal(15, 2)
+  discount            Decimal       @default(0.00) @db.Decimal(15, 2)
+  taxAmount           Decimal       @default(0.00) @db.Decimal(15, 2)
+  shippingCost        Decimal       @default(0.00) @db.Decimal(15, 2)
+  totalAmount         Decimal       @db.Decimal(15, 2)
+  paidAmount          Decimal       @default(0.00) @db.Decimal(15, 2)
+  balanceDue          Decimal       @default(0.00) @db.Decimal(15, 2)
+  effectiveTax        Decimal?      @default(0.00)
+  status              InvoiceStatus @default(UNPAID)
+  category            String        @default("OTHER")
+  pdfKey              String?
+  sentAt              DateTime?
+  paidAt              DateTime?
+  sellerName          String?       @db.Citext
+  sellerStreetAddress String?
+  sellerCity          String?
+  sellerState         String?
+  sellerZipCode       String?
+  sellerCountry       String?
+  sellerEmail         String?       @db.Citext
+  sellerPhone         String?
+  sellerTaxId         String?
+  sellerTaxSystem     String?
+
+  // The billed party, copied onto the invoice the way the seller already is.
+  // clientId is only a pointer: deleting a client nulls it, and editing one
+  // would rewrite every invoice it was ever on. These hold what was actually
+  // billed, and are what the PDF and the API prefer.
+  clientName           String?     @db.Citext
+  clientEmail          String?     @db.Citext
+  clientPhone          String?
+  clientStreetAddress  String?
+  clientCity           String?
+  clientState          String?
+  clientZipCode        String?
+  clientCountry        String?
+  clientTaxId          String?
+  clientTaxSystem      String?
+  clientCompanyType    String?
   iecCode              String?
-  lutFiled             Boolean       @default(false)
-  taxType              String        @default("NONE")
+  lutFiled             Boolean     @default(false)
+  taxType              String      @default("NONE")
   placeOfSupply        String?
-  reverseCharge        Boolean       @default(false)
+  reverseCharge        Boolean     @default(false)
   reverseReason        String?
   sacCode              String?
   taxSummary           Json?
@@ -190,20 +239,20 @@ model InvoiceBill {
   // second invoice. Scoped to the org so one tenant's key can never resolve to
   // another tenant's invoice.
   idempotencyKey       String?
-  pdfStatus            PdfStatus     @default(NOT_STARTED)
+  pdfStatus            PdfStatus   @default(NOT_STARTED)
   // Crash-safety for PDF generation. A worker claims a job by setting
   // pdfLeaseExpiresAt; if it dies, the lease expires and the sweeper hands the
   // row back instead of leaving it stuck in PROCESSING forever.
   pdfLeaseExpiresAt    DateTime?
-  pdfAttempts          Int           @default(0)
+  pdfAttempts          Int         @default(0)
   // Set before the email is sent, so a redelivered job can never send a second
   // copy to the client.
   emailSentAt          DateTime?
   // Whether the user asked for this invoice to be emailed. Persisted rather than
   // carried in the job payload, so a retry - from the row, the sweeper, anywhere
   // - cannot silently drop the intent.
-  emailRequested       Boolean       @default(false)
-  emailStatus          EmailStatus   @default(NOT_REQUESTED)
+  emailRequested       Boolean     @default(false)
+  emailStatus          EmailStatus @default(NOT_REQUESTED)
   emailError           String?
   confirmedAt          DateTime?
 

@@ -271,6 +271,63 @@ async function setActiveUnitsInvoice(user, units) {
   return updated.activeUnitsInvoice;
 }
 
+
+// ---------------------------------------------------------------------------
+// Payment accounts: saved bank/payment detail sets, picked by nickname when
+// creating an invoice. The invoice stores its own copy of whichever set was
+// chosen, so editing or deleting one here never rewrites an issued invoice.
+// ---------------------------------------------------------------------------
+
+/** Turns the unique (orgId, nickname) violation into a message worth reading. */
+function asNicknameConflict(err, nickname) {
+  if (err?.code === "P2002") {
+    return new Error(`You already have a payment detail set named "${nickname}".`);
+  }
+  return err;
+}
+
+async function listPaymentAccounts(user) {
+  return prisma.paymentAccount.findMany({
+    where: { orgId: BigInt(user.orgId) },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+async function createPaymentAccount(user, data) {
+  try {
+    return await prisma.paymentAccount.create({
+      data: { orgId: BigInt(user.orgId), ...data },
+    });
+  } catch (err) {
+    throw asNicknameConflict(err, data.nickname);
+  }
+}
+
+async function updatePaymentAccount(user, id, data) {
+  // Scoped to the org so one tenant can never address another tenant's row.
+  const updated = await prisma.paymentAccount
+    .updateMany({
+      where: { id: BigInt(id), orgId: BigInt(user.orgId) },
+      data,
+    })
+    .catch((err) => {
+      throw asNicknameConflict(err, data.nickname);
+    });
+
+  if (updated.count === 0) throw new Error("Payment details not found.");
+
+  return prisma.paymentAccount.findUnique({ where: { id: BigInt(id) } });
+}
+
+async function deletePaymentAccount(user, id) {
+  // Invoices hold their own copy, so nothing here cascades into them.
+  const deleted = await prisma.paymentAccount.deleteMany({
+    where: { id: BigInt(id), orgId: BigInt(user.orgId) },
+  });
+
+  if (deleted.count === 0) throw new Error("Payment details not found.");
+}
+
 module.exports = {
   getById,
   update,
@@ -286,4 +343,8 @@ module.exports = {
   deleteCustomUnitInvoice,
   getInvoiceUnits,
   setActiveUnitsInvoice,
+  listPaymentAccounts,
+  createPaymentAccount,
+  updatePaymentAccount,
+  deletePaymentAccount,
 };

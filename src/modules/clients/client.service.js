@@ -21,8 +21,6 @@ exports.createClient = async (user, data) => {
                 // gstin: data.gstin ?? null,
                 taxId: data.taxId ?? null,
                 taxSystem: data.taxSystem ?? "NONE",
-                // ✅ Status
-                isActive: data.isActive ?? true
             }
         });
     } catch (error) {
@@ -42,7 +40,7 @@ exports.listClient = async (user, page, limit) => {
     return prisma.client.findMany({
         where: {
             orgId: BigInt(user.orgId),
-            isActive: true,
+            deletedAt: null,
         },
         take: limit,
         skip: offset,
@@ -55,7 +53,7 @@ exports.getClientById = async (user, clientId) => {
         where: {
             orgId: BigInt(user.orgId),
             id: BigInt(clientId),
-            isActive: true,
+            deletedAt: null,
         }
     });
 }
@@ -66,17 +64,34 @@ exports.updateClient = async ({ user, clientId, data }) => {
         where: {
             id: BigInt(clientId),
             orgId: BigInt(user.orgId),
-            isActive: true,
+            deletedAt: null,
         },
         data,
     });
 };
 
+/**
+ * Retires a client instead of removing the row.
+ *
+ * A hard delete took the invoices with it: invoice_bills.clientId is ON DELETE
+ * SET NULL, so every invoice that ever billed this client silently lost it - no
+ * error, no warning, no count of what was touched. Every lookup here filters
+ * deletedAt: null, so the client disappears from the UI either way, while the
+ * invoices keep a row to point at.
+ *
+ * deletedAt: null in the where clause also makes this idempotent: deleting a
+ * second time reports not-found rather than overwriting who deleted it, and when.
+ */
 exports.deleteClient = async ({ user, clientId }) => {
-    return prisma.client.deleteMany({
+    return prisma.client.updateMany({
         where: {
             id: BigInt(clientId),
             orgId: BigInt(user.orgId),
-        }
+            deletedAt: null,
+        },
+        data: {
+            deletedAt: new Date(),
+            deletedBy: BigInt(user.userId),
+        },
     });
 };

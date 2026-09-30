@@ -1,4 +1,5 @@
 const prisma = require('../../config/database');
+const { clientForDisplay } = require("../../utils/clientSnapshot");
 const aiService = require('../ai/ai.service');
 const qstashService = require("../../queues/invoice.qstash");
 const { is } = require('zod/locales');
@@ -162,19 +163,20 @@ async function saveInvoiceFromPreview(user, payload) {
     return await prisma.$transaction(async (tx) => {
 
 
-        const subtotal = payload.subtotal ?? 0;
-        const discount = payload.discount ?? 0;
-        const taxAmount = payload.taxAmount ?? 0;
-        const shippingCost = payload.shippingCost ?? 0;
+        const subtotal = toNumber(payload.subtotal);
+        const discount = toNumber(payload.discount);
+        const taxAmount = toNumber(payload.taxAmount);
+        const shippingCost = toNumber(payload.shippingCost);
 
         const totalAmount =
-            payload.totalAmount ??
-            (subtotal - discount + taxAmount + shippingCost);
+            payload.totalAmount !== undefined && payload.totalAmount !== null
+                ? toNumber(payload.totalAmount)
+                : subtotal - discount + taxAmount + shippingCost;
 
-        const paidAmount = payload.paidAmount ?? 0;
+        const paidAmount = toNumber(payload.paidAmount);
         const balanceDue = totalAmount - paidAmount;
 
-        const exchangeRate = payload.exchangeRate ?? 1;
+        const exchangeRate = toNumber(payload.exchangeRate, 1);
         const baseAmount = totalAmount * exchangeRate;
         const client =
             payload.buyer
@@ -362,6 +364,22 @@ async function listInvoiceProducts(invoiceId, page = 1, limit = 10) {
 // Shared builders. Create and update once kept separate copies of this mapping
 // and drifted - the update path silently ignored a dozen fields.
 
+/**
+ * Money as a number, whatever it arrives as.
+ *
+ * Two sources hand us non-numbers. Prisma returns Decimal objects, whose
+ * valueOf() is a string, and unvalidated payloads carry strings straight from
+ * JSON. Either one turns a + into concatenation: 21000 + Decimal(0) is the
+ * string "210000", which is then stored as the total. Subtraction and
+ * multiplication coerce numerically and hide the problem, so only the additions
+ * were ever wrong.
+ */
+function toNumber(value, fallback = 0) {
+    if (value === null || value === undefined) return fallback;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+}
+
 function generateInvoiceNumber(user) {
     const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     return `INV-${user.userId}-${suffix.toUpperCase()}`;
@@ -371,19 +389,19 @@ function computeTotals(data) {
     const items = data.items ?? [];
 
     const subtotal = items.reduce(
-        (s, i) => s + (i.quantity ?? 1) * (i.unitPrice ?? 0),
+        (s, i) => s + toNumber(i.quantity, 1) * toNumber(i.unitPrice),
         0
     );
 
     const taxAmount = items.reduce(
-        (s, i) => s + ((i.quantity ?? 1) * (i.unitPrice ?? 0) * (i.taxRate ?? 0)) / 100,
+        (s, i) => s + (toNumber(i.quantity, 1) * toNumber(i.unitPrice) * toNumber(i.taxRate)) / 100,
         0
     );
 
-    const discount = data.discount ?? 0;
-    const shippingCost = data.shippingCost ?? 0;
-    const paidAmount = data.paidAmount ?? 0;
-    const exchangeRate = data.exchangeRate ?? 1;
+    const discount = toNumber(data.discount);
+    const shippingCost = toNumber(data.shippingCost);
+    const paidAmount = toNumber(data.paidAmount);
+    const exchangeRate = toNumber(data.exchangeRate, 1);
     const totalAmount = subtotal - discount + taxAmount + shippingCost;
 
     return {
@@ -410,6 +428,52 @@ function buildItemsCreate(items) {
         taxRate: item.taxRate ?? 0,
         totalPrice: item.itemTotal ?? (item.quantity ?? 1) * (item.unitPrice ?? 0),
     }));
+}
+
+// The columns that hold the billed party on the invoice itself.
+const CLIENT_SNAPSHOT_SELECT = {
+    name: true,
+    email: true,
+    phone: true,
+    streetAddress: true,
+    city: true,
+    state: true,
+    zipCode: true,
+    country: true,
+    taxId: true,
+    taxSystem: true,
+    companyType: true,
+};
+
+/**
+ * The client as the invoice should remember it. Null client means null columns,
+ * which is what detaching one has to write - leaving the old name behind would
+ * be worse than losing it.
+ */
+function buildClientSnapshot(client) {
+    return {
+        clientName: client?.name ?? null,
+        clientEmail: client?.email ?? null,
+        clientPhone: client?.phone ?? null,
+        clientStreetAddress: client?.streetAddress ?? null,
+        clientCity: client?.city ?? null,
+        clientState: client?.state ?? null,
+        clientZipCode: client?.zipCode ?? null,
+        clientCountry: client?.country ?? null,
+        clientTaxId: client?.taxId ?? null,
+        clientTaxSystem: client?.taxSystem ?? null,
+        clientCompanyType: client?.companyType ?? null,
+    };
+}
+
+/** Loads a client for snapshotting, org-scoped so one tenant cannot copy another. */
+async function loadClientForSnapshot(db, orgId, clientId) {
+    if (!clientId) return null;
+
+    return db.client.findFirst({
+        where: { id: BigInt(clientId), orgId: BigInt(orgId) },
+        select: CLIENT_SNAPSHOT_SELECT,
+    });
 }
 
 // Every scalar column a create writes. Updates go through updateInvoice(),
@@ -486,7 +550,15 @@ function readInvoiceState(invoiceId) {
 async function createInvoice(loggedInUser, data, { idempotencyKey }) {
     const orgId = BigInt(loggedInUser.orgId);
     const totals = computeTotals(data);
-    const fields = buildInvoiceFields(loggedInUser, data, totals);
+
+    // Copied at write time, not read time: the invoice must keep who it billed
+    // even after that client is edited or deleted.
+    const client = await loadClientForSnapshot(prisma, loggedInUser.orgId, data.clientId);
+
+    const fields = {
+        ...buildInvoiceFields(loggedInUser, data, totals),
+        ...buildClientSnapshot(client),
+    };
 
     // Identity must survive a retry: buildInvoiceFields generates a fresh
     // invoiceNumber when the payload omits one, which would renumber on update.
@@ -556,16 +628,26 @@ async function finalizeInvoice(loggedInUser, id, { sendEmail = false } = {}) {
 
     const invoice = await prisma.invoiceBill.findFirst({
         where: { id: invoiceId, orgId: BigInt(loggedInUser.orgId) },
-        select: INVOICE_STATE,
+        select: { ...INVOICE_STATE, _count: { select: { items: true } } },
     });
 
     if (!invoice) {
         throw new Error("Invoice not found");
     }
 
+    // A draft may be saved empty, but an issued invoice may not: it would bill the
+    // client for nothing. Checked here rather than at create, because this is the
+    // step that turns a draft into a real document.
+    if (invoice._count.items === 0) {
+        throw new Error("Add at least one item before creating the invoice.");
+    }
+
     // A job already in flight or finished is left alone - no stacked jobs.
     if (!REQUEUEABLE_PDF_STATUSES.has(invoice.pdfStatus)) {
-        return invoice;
+        // _count is for the guard above, not for the caller: hand back the same
+        // shape every other exit returns.
+        const { _count, ...state } = invoice;
+        return state;
     }
 
     // QUEUED before publishing, never after: the worker can finish while we are
@@ -614,7 +696,7 @@ async function resendInvoiceEmail(loggedInUser, id) {
 
     const invoice = await prisma.invoiceBill.findFirst({
         where: { id: invoiceId, orgId: BigInt(loggedInUser.orgId) },
-        select: { ...INVOICE_STATE, client: { select: { email: true } } },
+        select: { ...INVOICE_STATE, clientEmail: true, client: { select: { email: true } } },
     });
 
     if (!invoice) {
@@ -625,7 +707,7 @@ async function resendInvoiceEmail(loggedInUser, id) {
         throw new Error("The invoice PDF is not ready yet");
     }
 
-    if (!invoice.client?.email) {
+    if (!clientForDisplay(invoice).email) {
         throw new Error("This client has no email address on file");
     }
 
@@ -880,6 +962,12 @@ async function updateInvoice(user, id, data) {
 
         if (data.clientId !== undefined) {
             updateData.clientId = data.clientId === null ? null : BigInt(data.clientId);
+
+            // Re-snapshot alongside the pointer. Only when clientId is sent: an
+            // edit that does not mention the client must not refresh the billing
+            // details from a client record that has changed since.
+            const client = await loadClientForSnapshot(tx, user.orgId, data.clientId);
+            Object.assign(updateData, buildClientSnapshot(client));
         }
 
         // --------------------------------------------------
@@ -999,38 +1087,38 @@ async function updateInvoice(user, id, data) {
             data.exchangeRate !== undefined;
 
         if (shouldRecalculate) {
+            // Every value here is coerced: the fallbacks come straight from the
+            // database as Prisma Decimals, and one of those on the right of a +
+            // concatenates instead of adding.
             const subtotal = items.reduce(
-                (sum, i) => sum + (i.quantity ?? 1) * (i.unitPrice ?? 0),
+                (sum, i) => sum + toNumber(i.quantity, 1) * toNumber(i.unitPrice),
                 0
             );
 
             const taxAmount = items.reduce(
                 (sum, i) =>
                     sum +
-                    ((i.quantity ?? 1) *
-                        (i.unitPrice ?? 0) *
-                        (i.taxRate ?? 0)) /
+                    (toNumber(i.quantity, 1) *
+                        toNumber(i.unitPrice) *
+                        toNumber(i.taxRate)) /
                     100,
                 0
             );
 
-            const discount =
-                data.discount ?? existingInvoice.discount ?? 0;
+            const discount = toNumber(data.discount ?? existingInvoice.discount);
 
-            const shippingCost =
-                data.shippingCost ??
-                existingInvoice.shippingCost ??
-                0;
+            const shippingCost = toNumber(
+                data.shippingCost ?? existingInvoice.shippingCost
+            );
 
-            const paidAmount =
-                data.paidAmount ??
-                existingInvoice.paidAmount ??
-                0;
+            const paidAmount = toNumber(
+                data.paidAmount ?? existingInvoice.paidAmount
+            );
 
-            const exchangeRate =
-                data.exchangeRate ??
-                existingInvoice.exchangeRate ??
-                1;
+            const exchangeRate = toNumber(
+                data.exchangeRate ?? existingInvoice.exchangeRate,
+                1
+            );
 
             const totalAmount =
                 subtotal - discount + taxAmount + shippingCost;
@@ -1048,6 +1136,12 @@ async function updateInvoice(user, id, data) {
                 balanceDue,
                 exchangeRate,
                 baseAmount,
+                // Recalculated with the rest. Left out, it kept whatever create
+                // stored - zero for a draft saved before any items existed - and
+                // the PDF then printed "Tax (0%)" over a real tax amount.
+                effectiveTax: subtotal
+                    ? Number(((taxAmount / subtotal) * 100).toFixed(2))
+                    : 0,
             });
         }
 
@@ -1111,6 +1205,9 @@ async function getInvoice(user, id) {
     await markOverdueInvoices(invoice);
     return {
         ...invoice,
+        // Built from the columns on the invoice, not the relation - which this
+        // query never loaded, and which is null once the client is deleted.
+        client: clientForDisplay(invoice),
         // definitionId is what the dialog matches its checkboxes on. Without it
         // a saved field renders unticked, the user ticks it again, and the
         // invoice ends up with the same field twice.

@@ -4,6 +4,7 @@ const pdfService = require("../services/pdf.service");
 const storage = require("../storage/storage.service");
 const emailService = require('../services/email.service');
 const dayjs = require("dayjs");
+const { clientForDisplay } = require("../utils/clientSnapshot");
 
 // How long a worker may hold a job before the sweeper assumes it died.
 // Must be longer than a cold Puppeteer launch plus PDF generation.
@@ -129,8 +130,10 @@ async function deliverInvoiceEmail(invoice, pdfBuffer, { alreadyClaimed = false 
   const id = invoice.id;
 
   // The email goes to the client being billed, not to the Numor user who made
-  // the invoice.
-  const recipientEmail = invoice.client?.email;
+  // the invoice. Read from the snapshot, so a deleted client does not silently
+  // turn every resend into "Client has no email address".
+  const client = clientForDisplay(invoice);
+  const recipientEmail = client.email;
 
   if (!recipientEmail) {
     await prisma.invoiceBill.updateMany({
@@ -172,7 +175,7 @@ async function deliverInvoiceEmail(invoice, pdfBuffer, { alreadyClaimed = false 
   try {
     const base64Pdf = Buffer.from(pdfBuffer).toString("base64");
 
-    const clientName = invoice.client?.name || "there";
+    const clientName = client.name || "there";
     const sellerName = invoice.organization?.name || "your supplier";
     const dueDate = invoice.dueDate
       ? dayjs(invoice.dueDate).format("DD MMM YYYY")

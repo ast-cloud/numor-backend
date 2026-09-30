@@ -37,6 +37,9 @@ const sellerSchema = z.object({
 });
 
 const bankDetailsSchema = z.object({
+  // Which saved set these came from, so reopening the invoice can preselect it.
+  // A copy, not a reference: renaming or deleting the saved set leaves this alone.
+  nickname: z.string().optional().nullable(),
   bankName: z.string().optional().nullable(),
   accountName: z.string().optional().nullable(),
   accountNumber: z.string().optional().nullable(),
@@ -106,7 +109,10 @@ exports.createInvoiceSchema = z.object({
   idempotencyKey: z
     .string({ error: 'idempotencyKey is required' })
     .min(1, 'idempotencyKey is required'),
-  items: z.array(invoiceItemSchema).min(1, 'An invoice needs at least one item'),
+  // Create only ever produces a draft, and a draft may be saved before any line
+  // items exist. The "needs at least one item" rule lives in finalizeInvoice,
+  // which is the point an invoice actually gets issued.
+  items: z.array(invoiceItemSchema).optional().default([]),
 });
 
 // PATCH /api/invoices/:id
@@ -168,12 +174,6 @@ exports.exportInvoicesQuerySchema = z.object({
     .transform((v) => v === 'true'),
 });
 
-/** ZodError -> { field, message } pairs a form can render. */
-exports.formatZodError = (err) => ({
-  success: false,
-  message: 'Invalid input',
-  errors: err.issues.map((issue) => ({
-    field: issue.path.join('.') || '(body)',
-    message: issue.message,
-  })),
-});
+// Re-exported so the invoice controller keeps importing it from here; the
+// implementation is shared with the other modules.
+exports.formatZodError = require('../../utils/zodError').formatZodError;

@@ -22,4 +22,12 @@ router.delete('/custom-units/:unit', auth, requirePermission("organizationSettin
 router.get('/invoice-units',        auth, requirePermission("organizationSettings", "read"),  orgController.getInvoiceUnits);
 router.put('/invoice-units/active', auth, requirePermission("organizationSettings", "write"), orgController.setActiveUnitsInvoice);
 
+
+// Saved bank/payment detail sets. The invoice dialog lists these in a dropdown;
+// picking one fills the bank fields and locks them.
+router.get("/payment-accounts",         auth, requirePermission("organizationSettings", "read"),  orgController.listPaymentAccounts);
+router.post("/payment-accounts",        auth, requirePermission("organizationSettings", "write"), orgController.createPaymentAccount);
+router.put("/payment-accounts/:id",     auth, requirePermission("organizationSettings", "write"), orgController.updatePaymentAccount);
+router.delete("/payment-accounts/:id",  auth, requirePermission("organizationSettings", "write"), orgController.deletePaymentAccount);
+
 module.exports = router;

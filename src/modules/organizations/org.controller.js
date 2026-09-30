@@ -1,4 +1,20 @@
+const { ZodError } = require("zod");
 const orgService = require("./org.service");
+const {
+  paymentAccountSchema,
+  paymentAccountIdParamSchema,
+  formatZodError,
+} = require("./org.validator");
+
+/** Single error exit: ZodError -> 400 with field names, anything else -> status. */
+const fail = (res, err, context, status = 400) => {
+  if (err instanceof ZodError) {
+    return res.status(400).json(formatZodError(err));
+  }
+
+  console.error(`Error in ${context}:`, err);
+  return res.status(status).json({ success: false, message: err.message });
+};
 
 async function getMyOrganization(req, res) {
   const org = await orgService.getById(req.loggedInUser.orgId);
@@ -141,6 +157,55 @@ async function setActiveUnitsInvoice(req, res) {
   }
 }
 
+
+// Saved bank/payment detail sets, offered as a dropdown in the invoice dialog.
+
+async function listPaymentAccounts(req, res) {
+  try {
+    const data = await orgService.listPaymentAccounts(req.loggedInUser);
+    return res.json({ success: true, data });
+  } catch (err) {
+    return fail(res, err, "listPaymentAccounts", 500);
+  }
+}
+
+async function createPaymentAccount(req, res) {
+  try {
+    const payload = paymentAccountSchema.parse(req.body);
+
+    const data = await orgService.createPaymentAccount(req.loggedInUser, payload);
+
+    return res.status(201).json({ success: true, data });
+  } catch (err) {
+    return fail(res, err, "createPaymentAccount");
+  }
+}
+
+async function updatePaymentAccount(req, res) {
+  try {
+    const { id } = paymentAccountIdParamSchema.parse(req.params);
+    const payload = paymentAccountSchema.parse(req.body);
+
+    const data = await orgService.updatePaymentAccount(req.loggedInUser, id, payload);
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    return fail(res, err, "updatePaymentAccount");
+  }
+}
+
+async function deletePaymentAccount(req, res) {
+  try {
+    const { id } = paymentAccountIdParamSchema.parse(req.params);
+
+    await orgService.deletePaymentAccount(req.loggedInUser, id);
+
+    return res.json({ success: true, message: "Payment details deleted successfully" });
+  } catch (err) {
+    return fail(res, err, "deletePaymentAccount");
+  }
+}
+
 module.exports = {
   getMyOrganization,
   updateMyOrganization,
@@ -154,6 +219,10 @@ module.exports = {
   listCustomUnitsInvoice,
   addCustomUnitInvoice,
   deleteCustomUnitInvoice,
+  listPaymentAccounts,
+  createPaymentAccount,
+  updatePaymentAccount,
+  deletePaymentAccount,
   getInvoiceUnits,
   setActiveUnitsInvoice,
 };

@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { clientForDisplay } = require("../utils/clientSnapshot");
 const path = require("path");
 const Handlebars = require("handlebars");
 const puppeteer = require("puppeteer");
@@ -68,13 +69,17 @@ function generateInvoicePdf(invoice) {
 
     const html = fs.readFileSync(templatePath, "utf-8");
     const template = Handlebars.compile(html);
-    const clientTaxLabel = getTaxLabel(invoice.client.country);
+    // Read through the snapshot: invoice.client is null once that client is
+    // deleted, and reaching into it directly threw before the PDF ever rendered.
+    const client = clientForDisplay(invoice);
+    const clientTaxLabel = getTaxLabel(client.country);
     const organizationLogoUrl = invoice.organizationLogoUrl || "";
     // console.log("Using organization logo URL:", organizationLogoUrl);
     const money = (value) => formatMoney(value, invoice.currency);
 
     const htmlWithData = template({
       ...invoice,
+      client,
       clientTaxLabel,
       organizationLogoUrl,
       issueDate: invoice.issueDate.toISOString().split("T")[0],
