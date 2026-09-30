@@ -5,6 +5,63 @@ const storage = require("../storage/storage.service");
 const emailService = require('../services/email.service');
 const dayjs = require("dayjs");
 const { clientForDisplay } = require("../utils/clientSnapshot");
+const fs = require("fs");
+const path = require("path");
+const Handlebars = require("handlebars");
+
+// Compiled once. The file never changes at runtime, and every invoice email
+// renders from it.
+//
+// Comments are stripped first. They are notes for us, and the recipient of the
+// mail can read the source; they also count towards the ~102KB at which Gmail
+// clips a message. Conditional comments are left alone - those are markup.
+const invoiceEmailTemplate = Handlebars.compile(
+  fs
+    .readFileSync(path.join(__dirname, "../templates/invoice-email.html"), "utf-8")
+    .replace(/<!--(?!\[if)[\s\S]*?-->/g, "")
+);
+
+// Referenced from the template as <img src="cid:...">. An inline attachment,
+// not a link: storage signed URLs expire in 15 minutes and are served as
+// downloads, so a linked logo would be a broken image in the inbox by the time
+// anyone opened it.
+const LOGO_CID = "seller-logo";
+const WALLET_CID = "icon-wallet";
+const CALENDAR_CID = "icon-calendar";
+
+// The two label icons, read once at startup. They ship as PNG rather than inline
+// SVG because Gmail strips <svg> outright, and rather than emoji because those
+// render differently on every platform.
+const ICON_ATTACHMENTS = [
+  { cid: WALLET_CID, file: "icon-wallet.png" },
+  { cid: CALENDAR_CID, file: "icon-calendar.png" },
+].map(({ cid, file }) => ({
+  filename: file,
+  content: fs
+    .readFileSync(path.join(__dirname, "../templates/assets", file))
+    .toString("base64"),
+  contentId: cid,
+}));
+
+/** The org logo as an attachment, or null when there is none to send. */
+async function loadLogoAttachment(organization) {
+  if (!organization?.logoUrl) return null;
+
+  try {
+    const bytes = await storage.download(organization.logoUrl);
+    const filename = path.basename(organization.logoUrl) || "logo.png";
+
+    return {
+      filename,
+      content: Buffer.from(bytes).toString("base64"),
+      contentId: LOGO_CID,
+    };
+  } catch (error) {
+    // The email is worth more than the logo: fall back to the monogram.
+    console.warn("Could not attach organization logo:", error.message);
+    return null;
+  }
+}
 
 // How long a worker may hold a job before the sweeper assumes it died.
 // Must be longer than a cold Puppeteer launch plus PDF generation.
@@ -182,32 +239,45 @@ async function deliverInvoiceEmail(invoice, pdfBuffer, { alreadyClaimed = false 
       : null;
     const amount = `${invoice.currency} ${Number(invoice.totalAmount).toFixed(2)}`;
 
-    const subject = `Invoice ${invoice.invoiceNumber} from ${sellerName}`;
+    const subject = `New Invoice from ${sellerName} (${invoice.invoiceNumber})`;
 
-    const html = `
-      <p>Hi ${clientName},</p>
-      <p>Please find attached invoice <strong>#${invoice.invoiceNumber}</strong> from <strong>${sellerName}</strong>.</p>
-      <p>
-        Amount due: <strong>${amount}</strong>${dueDate ? `<br/>Due by: <strong>${dueDate}</strong>` : ""}
-      </p>
-      <p>If you have any questions about this invoice, please write to us at ${invoice.organization?.email || "admin@numor.app"}.</p>
-      <br/>
-      <p>
-        Thanks,<br/>
-        <strong>${sellerName}</strong>
-      </p>
-    `;
-    const text = `
-        Hi ${clientName},
-        Please find attached invoice #${invoice.invoiceNumber} from ${sellerName}.
-        Amount due: ${amount}${dueDate ? `\nDue by: ${dueDate}` : ""}
-        If you have any questions about this invoice, please write to us at ${invoice.organization?.email || "admin@numor.app"}.
-        Thanks,
-        ${sellerName}
-        `;
+    const contactEmail = invoice.organization?.email || "admin@numor.app";
+    const logoAttachment = await loadLogoAttachment(invoice.organization);
+
+    const html = invoiceEmailTemplate({
+      clientName,
+      sellerName,
+      invoiceNumber: invoice.invoiceNumber,
+      amount,
+      dueDate,
+      contactEmail,
+      logoCid: logoAttachment ? LOGO_CID : null,
+      walletCid: WALLET_CID,
+      calendarCid: CALENDAR_CID,
+      sellerInitial: sellerName.trim().charAt(0).toUpperCase() || "?",
+    });
+    // The text alternative for clients that will not render HTML. Same words,
+    // no markup - built with real newlines rather than an indented template
+    // literal, which would carry its own leading whitespace into the mail.
+    const text = [
+      `Hi ${clientName},`,
+      "",
+      `Please find attached invoice #${invoice.invoiceNumber} from ${sellerName}.`,
+      "",
+      `Amount due: ${amount}`,
+      ...(dueDate ? [`Due by: ${dueDate}`] : []),
+      "",
+      `If you have any questions about this invoice, please write to us at ${contactEmail}.`,
+      "",
+      "Thanks,",
+      sellerName,
+    ].join("\n");
 
     await emailService.sendEmailWithAttachment({
       to: recipientEmail,
+      // What the recipient sees in their inbox. The address behind it is still
+      // ours - only a verified domain can be signed for.
+      fromName: sellerName,
       // Replies should go to the user who made the invoice, not to our shared
       // sending address.
       replyTo: invoice.createdBy?.email || undefined,
@@ -219,6 +289,10 @@ async function deliverInvoiceEmail(invoice, pdfBuffer, { alreadyClaimed = false 
           filename: `Invoice-${invoice.invoiceNumber}.pdf`,
           content: base64Pdf,
         },
+        // Inline, so these render in the body rather than showing up as extra
+        // files for the client to open.
+        ...(logoAttachment ? [logoAttachment] : []),
+        ...ICON_ATTACHMENTS,
       ],
     });
 

@@ -11,6 +11,28 @@ if (!EMAIL_FROM) {
   throw new Error('EMAIL_FROM is not set in env');
 }
 
+/**
+ * EMAIL_FROM with its display name swapped for `name`.
+ *
+ * Only the name changes. The address has to stay on the verified domain, or DKIM
+ * and DMARC fail and the mail is filtered as a forgery - which is why we cannot
+ * simply send as the seller.
+ *
+ * Newlines are stripped before quoting: a header value carrying CR or LF is how
+ * header injection works, and a company name is user input.
+ */
+function fromWithDisplayName(name) {
+  const trimmed = String(name ?? '').replace(/[\r\n]+/g, ' ').trim();
+  if (!trimmed) return EMAIL_FROM;
+
+  const address = /<([^>]+)>/.exec(EMAIL_FROM)?.[1] ?? EMAIL_FROM.trim();
+  const quoted = trimmed.replace(/["\\]/g, '\\$&');
+
+  return `"${quoted}" <${address}>`;
+}
+
+exports.fromWithDisplayName = fromWithDisplayName;
+
 exports.sendEmail = async ({ to, subject, html }) => {
   try {
     const response = await resend.emails.send({
@@ -66,12 +88,14 @@ exports.sendBookingEmails = async (booking) => {
   }
 };
 
-exports.sendEmailWithAttachment = async ({to, subject, html, text, attachments, replyTo}) => {
+exports.sendEmailWithAttachment = async ({to, subject, html, text, attachments, replyTo, fromName}) => {
   try {
     if (!to) throw new Error("Recipient email missing");
 
     const response = await resend.emails.send({
-      from: EMAIL_FROM,
+      // The seller is who the recipient recognises, so they become the display
+      // name; the address stays ours, because ours is the verified domain.
+      from: fromWithDisplayName(fromName),
       to,
       // Mail sent to an external party (a billed client, say) needs replies to
       // reach the person who issued it, not the shared EMAIL_FROM address.

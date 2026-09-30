@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light only" />
+    <title>Invoice {{invoiceNumber}}</title>
+    <style>
+      /*
+        Mobile first, and deliberately so.
+
+        The inline styles below are the PHONE layout: 24px gutters, 16px body, a
+        stacked amount panel. This block only scales things up once there is room
+        for it. That ordering matters because a fair number of clients drop
+        <style> entirely - when that happens everyone gets the phone layout,
+        which is merely compact on a desktop. The other way round, which is what
+        this template used to do, left phones rendering a desktop layout they
+        could not fit.
+      */
+      @media only screen and (min-width: 600px) {
+        .px { padding-left: 40px !important; padding-right: 40px !important; }
+
+        .t-seller { font-size: 18px !important; line-height: 25px !important; }
+        .t-greeting { font-size: 18px !important; line-height: 28px !important; }
+        .t-body { font-size: 17px !important; line-height: 27px !important; }
+        .t-amount { font-size: 33px !important; line-height: 38px !important; }
+
+        /* Side by side again, with the date pushed to the right edge. */
+        .col {
+          display: table-cell !important;
+          width: auto !important;
+          padding: 24px !important;
+        }
+        .col-right { text-align: right !important; padding-left: 0 !important; }
+        .col-right > table { display: inline-table !important; }
+        .col-right .v { text-align: right !important; }
+      }
+    </style>
+  </head>
+  <!--
+    Table layout with inline styles throughout. Mail clients understand no
+    flexbox or grid, so structure has to come from nested tables, and the <style>
+    block above is treated as optional. Outlook ignores border-radius; every
+    rounded box here is still readable as a square one.
+
+    white-space:nowrap is allowed only on the two uppercase labels. It gives a
+    table a minimum width it cannot shrink below; on the amount that pushed the
+    whole email 61px wider than a 360px screen, and phone clients reflow to fit
+    rather than scroll, which is what broke the value across two lines. A label
+    costs under 90px of minimum width, which fits. The date does not.
+
+    Type scale, deliberately narrow so the page reads quiet rather than shouted:
+      400  body and labels
+      500  inline emphasis, the due date, the contact link
+      600  company name and the amount - nothing heavier anywhere
+    Colour follows the same idea: body #475569, emphasis #334155, company
+    #1e293b. No pure black, and no 700.
+
+    Handlebars escapes its interpolations by default, which is what stops a
+    client or company name containing a quote or a tag from breaking out into
+    the markup. Note that it parses HTML comments too - do not write its
+    delimiters in one.
+  -->
+  <body style="margin:0; padding:0; width:100%; background-color:#ffffff;">
+    <!-- Preheader: the grey line inboxes show after the subject. Hidden in-body. -->
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent; height:0; width:0;">
+      Invoice {{invoiceNumber}} from {{sellerName}} &mdash; {{amount}}{{#if dueDate}}, due {{dueDate}}{{/if}}.
+    </div>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background-color:#ffffff;">
+
+      <!-- Brand rule, edge to edge -->
+      <tr>
+        <td style="height:4px; line-height:4px; font-size:0; background-color:#0ea472;">&nbsp;</td>
+      </tr>
+
+      <!-- Seller identity -->
+      <tr>
+        <td class="px" style="padding:26px 24px 0 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              {{#if logoCid}}
+              <td width="46" style="padding-right:14px;" valign="middle">
+                <!-- Decorative: the seller name is right beside it in text, so alt is
+                     empty. A repeated name here would also wrap badly inside a small
+                     box in the clients that block images by default. -->
+                <img src="cid:{{logoCid}}" alt="" width="46"
+                     style="display:block; width:46px; height:auto; max-height:46px; border:0; outline:none; text-decoration:none;" />
+              </td>
+              {{else}}
+              <!-- No logo on file: a monogram keeps the header from looking broken. -->
+              <td width="46" style="padding-right:14px;" valign="middle">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="46">
+                  <tr>
+                    <td align="center" height="46"
+                        style="width:46px; height:46px; background-color:#effbf7; border:1px solid #c9e8de; border-radius:23px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; font-size:19px; font-weight:600; color:#096748;">
+                      {{sellerInitial}}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              {{/if}}
+              <td valign="middle" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+                <div class="t-seller" style="font-size:17px; font-weight:600; color:#1e293b; line-height:23px; letter-spacing:-0.2px;">{{sellerName}}</div>
+                <div style="font-size:13px; font-weight:400; color:#94a3b8; line-height:19px; padding-top:2px; word-break:break-word;">Invoice #{{invoiceNumber}}</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Message -->
+      <tr>
+        <td class="px" style="padding:24px 24px 0 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+          <p class="t-greeting" style="margin:0 0 12px 0; font-size:17px; font-weight:400; line-height:26px; color:#475569;">Hi {{clientName}},</p>
+          <p class="t-body" style="margin:0; font-size:16px; font-weight:400; line-height:25px; color:#475569;">
+            Please find attached invoice <strong style="font-weight:500; color:#334155;">#{{invoiceNumber}}</strong>
+            from <strong style="font-weight:500; color:#334155;">{{sellerName}}</strong>.
+          </p>
+        </td>
+      </tr>
+
+      <!-- Amount due / Due by. Stacked by default; the media query puts them
+           back on one row once the screen is wide enough. -->
+      <tr>
+        <td class="px" style="padding:22px 24px 0 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+                 style="width:100%; background-color:#f4fbf8; border:1px solid #dcefe7; border-radius:14px;">
+            <tr>
+              <td class="col" valign="top"
+                  style="display:block; width:100%; box-sizing:border-box; padding:20px 20px 0 20px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="16" style="padding-right:8px;" valign="middle">
+                      <img src="cid:{{walletCid}}" width="16" height="16" alt=""
+                           style="display:block; width:16px; height:16px; border:0;" />
+                    </td>
+                    <td valign="middle" style="font-size:12px; font-weight:400; letter-spacing:0.8px; text-transform:uppercase; color:#64748b; white-space:nowrap;">
+                      Amount due
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" class="t-amount v" style="padding-top:8px; font-size:27px; line-height:33px; font-weight:600; letter-spacing:-0.4px; color:#096748;">
+                      {{amount}}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              {{#if dueDate}}
+              <td class="col col-right" valign="top"
+                  style="display:block; width:100%; box-sizing:border-box; padding:16px 20px 20px 20px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td width="16" style="padding-right:8px;" valign="middle">
+                      <img src="cid:{{calendarCid}}" width="16" height="16" alt=""
+                           style="display:block; width:16px; height:16px; border:0;" />
+                    </td>
+                    <td valign="middle" style="font-size:12px; font-weight:400; letter-spacing:0.8px; text-transform:uppercase; color:#64748b; white-space:nowrap;">
+                      Due by
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" class="v" style="padding-top:8px; font-size:16px; line-height:22px; font-weight:500; color:#334155;">
+                      {{dueDate}}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              {{/if}}
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Questions -->
+      <tr>
+        <td class="px" style="padding:24px 24px 0 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+          <p class="t-body" style="margin:0; font-size:16px; font-weight:400; line-height:25px; color:#475569;">
+            If you have any questions about this invoice, please write to us at
+            <a href="mailto:{{contactEmail}}" style="color:#0b8a5f; font-weight:500; text-decoration:none; word-break:break-word;">{{contactEmail}}</a>.
+          </p>
+        </td>
+      </tr>
+
+      <!-- Sign-off -->
+      <tr>
+        <td class="px" style="padding:26px 24px 0 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+          <div class="t-body" style="border-top:1px solid #e9efec; padding-top:22px; font-size:16px; font-weight:400; line-height:25px; color:#475569;">
+            Thanks,<br />
+            <strong style="font-weight:600; color:#1e293b;">{{sellerName}}</strong>
+          </div>
+        </td>
+      </tr>
+
+      <!-- Footer. align on the cell as well as text-align, because Outlook
+           honours the attribute and not always the property. -->
+      <tr>
+        <td class="px" style="padding:24px 24px 30px 24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;">
+            <tr>
+              <td align="right"
+                  style="border-top:1px solid #e9efec; padding-top:14px; text-align:right; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif; font-size:13px; font-weight:400; line-height:18px; color:#94a3b8;">
+                Powered by <strong style="font-weight:600; color:#0b8a5f;">Numor</strong>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
