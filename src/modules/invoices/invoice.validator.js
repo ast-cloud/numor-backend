@@ -151,10 +151,44 @@ exports.setPaymentStatusSchema = z.object({
 
 // GET /api/invoices
 exports.listInvoicesQuerySchema = z.object({
+  // offset is the one the client should send. page is kept because it was the
+  // original contract; when only page is given, offset is derived from it.
   page: z.coerce.number().int().positive().optional(),
+  offset: z.coerce.number().int().min(0).optional(),
   limit: z.coerce.number().int().positive().max(200).optional(),
+
+  // Matches the invoice number or the client name, case-insensitively.
+  search: z.string().trim().max(200).optional(),
+
+  // Comma-separated client ids: ?clientIds=1,2,3. Absent becomes [], which the
+  // service reads as "no client filter" rather than "no clients match".
+  clientIds: z
+    .string()
+    .optional()
+    .transform((value) =>
+      (value ?? '')
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean),
+    )
+    .refine((ids) => ids.length <= 100, 'Too many clients selected')
+    .refine((ids) => ids.every((id) => /^\d+$/.test(id)), 'clientIds must be numeric'),
+
+  tab: z.enum(['all', 'draft', 'unpaid', 'paid', 'overdue']).optional(),
+  sort: z
+    .enum([
+      'due_date_desc', 'due_date_asc',
+      'issue_date_desc', 'issue_date_asc',
+      'amount_desc', 'amount_asc',
+      'client_desc', 'client_asc',
+    ])
+    .optional(),
+
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
+  // Which date the range applies to. Defaults to issueDate, the original
+  // behaviour; the list screen asks for dueDate, which is what it displays.
+  dateField: z.enum(['issueDate', 'dueDate']).optional(),
 });
 
 // GET /api/invoices/:id/items

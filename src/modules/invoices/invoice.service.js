@@ -299,52 +299,194 @@ async function saveInvoiceFromPreview(user, payload) {
     });
 }
 
-async function listInvoices(user, page = 1, limit = 10, startDate, endDate) {
-    page = Number(page);
-    limit = Number(limit);
+// The tabs the invoice list offers, as where-clauses.
+//
+// "all" and "draft" are exact complements: a draft nobody has issued yet sits on
+// the Draft tab, while a draft whose PDF is generating or failed is still
+// mid-flight and belongs with the active ones. pdfStatus tells them apart.
+const LIST_TABS = {
+    all: { NOT: { AND: [{ status: "DRAFT" }, { pdfStatus: "NOT_STARTED" }] } },
+    draft: { AND: [{ status: "DRAFT" }, { pdfStatus: "NOT_STARTED" }] },
+    unpaid: { status: "UNPAID" },
+    paid: { status: "PAID" },
+    overdue: { status: "OVERDUE" },
+};
 
-    if (Number.isNaN(page) || page < 1) page = 1;
-    if (Number.isNaN(limit) || limit < 1) limit = 10;
+const LIST_SORTS = {
+    due_date_desc: { dueDate: "desc" },
+    due_date_asc: { dueDate: "asc" },
+    issue_date_desc: { issueDate: "desc" },
+    issue_date_asc: { issueDate: "asc" },
+    amount_desc: { totalAmount: "desc" },
+    amount_asc: { totalAmount: "asc" },
+    client_desc: { clientName: "desc" },
+    client_asc: { clientName: "asc" },
+};
 
-    const offset = (page - 1) * limit;
+/**
+ * Everything the list is filtered by, minus paging. Shared by the page query,
+ * the tab counts and the summary totals, so the three can never disagree about
+ * what they are describing.
+ */
+function buildListWhere(user, { search, tab, startDate, endDate, dateField, clientIds } = {}) {
+    const where = { orgId: BigInt(user.orgId) };
 
-    // Build dynamic where condition
-    const where = {
-        orgId: BigInt(user.orgId),
-    };
-    // Add date filter only if provided
+    // Filters on the id, not the snapshot name: two clients may share a name,
+    // and the picker the user chose from is a list of ids.
+    if (clientIds?.length) {
+        where.clientId = { in: clientIds.map((id) => BigInt(id)) };
+    }
+
+    if (tab && LIST_TABS[tab]) {
+        Object.assign(where, LIST_TABS[tab]);
+    }
+
     if (startDate || endDate) {
-        where.issueDate = {};
+        // Which date the range applies to is up to the caller: the list screen
+        // filters on when payment is due, exports on when the invoice was raised.
+        const field = dateField === "dueDate" ? "dueDate" : "issueDate";
+        where[field] = {};
 
-        if (startDate) {
-            where.issueDate.gte = new Date(startDate);
-        }
+        if (startDate) where[field].gte = new Date(startDate);
 
         if (endDate) {
-            // Optional: make endDate inclusive for whole day
+            // Inclusive of the whole end day.
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
-            where.issueDate.lte = end;
+            where[field].lte = end;
         }
     }
-    const invoices = await prisma.invoiceBill.findMany({
-        where,
-        include: {
-            items: true,
-            customFields: {
-                include: {
-                    customField: true,
-                },
-            },
-        },
-        orderBy: {
-            createdAt: 'desc',
-        },
-        take: limit,
-        skip: offset,
-    });
 
-    return markOverdueInvoices(invoices);
+    const term = (search ?? "").trim();
+    if (term) {
+        // clientName is the snapshot on the invoice, which is what the list
+        // displays. The relation is searched too, so a row written before the
+        // snapshot column existed is still findable.
+        where.OR = [
+            { invoiceNumber: { contains: term, mode: "insensitive" } },
+            { clientName: { contains: term, mode: "insensitive" } },
+            { client: { is: { name: { contains: term, mode: "insensitive" } } } },
+        ];
+    }
+
+    return where;
+}
+
+async function listInvoices(user, options = {}) {
+    const { search, tab, sort, startDate, endDate, dateField, clientIds } = options;
+
+    const limit = Math.min(Math.max(Number(options.limit) || 20, 1), 200);
+    const offset = Math.max(Number(options.offset) || 0, 0);
+
+    const where = buildListWhere(user, { search, tab, startDate, endDate, dateField, clientIds });
+    const orderBy = LIST_SORTS[sort] ?? { createdAt: "desc" };
+
+    const [invoices, total] = await Promise.all([
+        prisma.invoiceBill.findMany({
+            where,
+            include: {
+                items: true,
+                customFields: { include: { customField: true } },
+            },
+            // A second key, because dueDate and totalAmount are not unique. Without
+            // it two rows that tie can swap places between queries, and one of them
+            // is then shown on two pages while the other is never shown at all.
+            orderBy: [orderBy, { id: "desc" }],
+            take: limit,
+            skip: offset,
+        }),
+        prisma.invoiceBill.count({ where }),
+    ]);
+
+    await markOverdueInvoices(invoices);
+
+    const summary = await buildListSummary(user, { search, tab, startDate, endDate, dateField, clientIds });
+
+    return { invoices, pagination: { total, limit, offset }, ...summary };
+}
+
+/**
+ * The numbers the list screen shows outside the rows: a count per tab, and the
+ * money totals for the tab being viewed.
+ *
+ * These describe the whole filtered set, not the page. Deriving them on the
+ * client would have quietly reduced them to "the twenty rows you can see" the
+ * moment paging arrived.
+ */
+async function buildListSummary(user, { search, tab, startDate, endDate, dateField, clientIds }) {
+    // Counts deliberately ignore the tab: every tab shows its own count at once.
+    const countWhere = buildListWhere(user, { search, startDate, endDate, dateField, clientIds });
+
+    // Totals describe the tab being viewed, drafts excluded - an invoice nobody
+    // has issued is not income. AND rather than a spread, because the tab clause
+    // may itself set status and would be overwritten.
+    const totalsWhere = {
+        AND: [
+            buildListWhere(user, { search, tab, startDate, endDate, dateField, clientIds }),
+            { status: { not: "DRAFT" } },
+        ],
+    };
+
+    const [grouped, byCurrency, topClientRows, invoiceCount] = await Promise.all([
+        prisma.invoiceBill.groupBy({
+            by: ["status", "pdfStatus"],
+            where: countWhere,
+            _count: { _all: true },
+        }),
+        prisma.invoiceBill.groupBy({
+            by: ["currency", "status"],
+            where: totalsWhere,
+            _sum: { totalAmount: true },
+        }),
+        prisma.invoiceBill.groupBy({
+            by: ["clientName"],
+            where: totalsWhere,
+            _sum: { totalAmount: true },
+            orderBy: { _sum: { totalAmount: "desc" } },
+            take: 1,
+        }),
+        prisma.invoiceBill.count({ where: totalsWhere }),
+    ]);
+
+    const counts = { all: 0, unpaid: 0, paid: 0, overdue: 0, draft: 0 };
+    for (const row of grouped) {
+        const n = row._count._all;
+        const unissuedDraft = row.status === "DRAFT" && row.pdfStatus === "NOT_STARTED";
+
+        // all and draft partition the set; the status tabs overlap with all.
+        if (unissuedDraft) counts.draft += n;
+        else counts.all += n;
+
+        if (row.status === "UNPAID") counts.unpaid += n;
+        if (row.status === "PAID") counts.paid += n;
+        if (row.status === "OVERDUE") counts.overdue += n;
+    }
+
+    const currencies = new Map();
+    for (const row of byCurrency) {
+        const bucket = currencies.get(row.currency) ?? { currency: row.currency, total: 0, paid: 0, unpaid: 0 };
+        const amount = toNumber(row._sum.totalAmount);
+
+        bucket.total += amount;
+        if (row.status === "PAID") bucket.paid += amount;
+        // Outstanding is everything issued and not yet settled.
+        if (row.status === "UNPAID" || row.status === "OVERDUE") bucket.unpaid += amount;
+
+        currencies.set(row.currency, bucket);
+    }
+
+    const top = topClientRows[0];
+
+    return {
+        counts,
+        totals: {
+            invoiceCount,
+            byCurrency: [...currencies.values()].sort((a, b) => b.total - a.total),
+            topClient: top?.clientName
+                ? { name: top.clientName, amount: toNumber(top._sum.totalAmount) }
+                : null,
+        },
+    };
 }
 
 async function listInvoiceProducts(invoiceId, page = 1, limit = 10) {

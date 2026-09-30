@@ -47,19 +47,24 @@ exports.confirmAndSaveInvoice = async function (req, res) {
   }
 };
 
+// GET / - the invoice list. Paged, searchable, and it also returns the counts
+// and totals the screen shows around the rows, computed over the whole filtered
+// set rather than the page.
 exports.listInvoices = async function (req, res) {
   try {
-    const { page, limit, startDate, endDate } = listInvoicesQuerySchema.parse(req.query);
+    const query = listInvoicesQuerySchema.parse(req.query);
+    const limit = query.limit ?? 20;
 
-    const invoices = await invoiceService.listInvoices(
+    // page is the older contract. Only consulted when offset is absent, so a
+    // client sending offset is never second-guessed.
+    const offset = query.offset ?? (query.page ? (query.page - 1) * limit : 0);
+
+    const { invoices, pagination, counts, totals } = await invoiceService.listInvoices(
       req.loggedInUser,
-      page,
-      limit,
-      startDate,
-      endDate
+      { ...query, limit, offset }
     );
 
-    res.json({ success: true, data: invoices });
+    res.json({ success: true, data: invoices, pagination, counts, totals });
   } catch (err) {
     return fail(res, err, 'listInvoices', 500);
   }
