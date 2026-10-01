@@ -162,11 +162,10 @@ async function deleteCustomFieldDefinition(user, id) {
   });
   if (!existing) throw new Error("Custom field not found.");
 
-  // Delete associated values on invoices to prevent foreign key constraint errors
-  await prisma.invoiceCustomFieldValue.deleteMany({
-    where: { customFieldId: BigInt(id) }
-  });
-
+  // The values on invoices are deliberately left alone. They carry their own
+  // copy of the name, and the foreign key is ON DELETE SET NULL, so each invoice
+  // keeps the field it was issued with while the pointer simply goes null.
+  // Deleting them here is what used to erase the field from every past invoice.
   return prisma.customFieldDefinition.delete({
     where: { id: BigInt(id) }
   });

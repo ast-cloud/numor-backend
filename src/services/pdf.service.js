@@ -77,6 +77,10 @@ function generateInvoicePdf(invoice) {
     // console.log("Using organization logo URL:", organizationLogoUrl);
     const money = (value) => formatMoney(value, invoice.currency);
 
+    const labelledCustomFields = (invoice.customFields ?? [])
+      .map((cf) => ({ name: cf.name ?? cf.customField?.name ?? "", value: cf.value }))
+      .filter((cf) => cf.name);
+
     const htmlWithData = template({
       ...invoice,
       client,
@@ -94,6 +98,14 @@ function generateInvoicePdf(invoice) {
       taxAmount: money(invoice.taxAmount),
       totalAmount: money(invoice.totalAmount),
       taxSummary: formatTaxSummary(invoice.taxSummary, money),
+      // Resolved here rather than in the template, which reached through the
+      // relation - null once the definition is deleted, printing a bare colon.
+      customFields: labelledCustomFields,
+      // Split into the two columns the template lays out, so the second field
+      // sits under Bill To. Row-major: 1st left, 2nd right, 3rd left.
+      customFieldsLeft: labelledCustomFields.filter((_, i) => i % 2 === 0),
+      customFieldsRight: labelledCustomFields.filter((_, i) => i % 2 === 1),
+
       items: invoice.items?.map((item, index) => ({
         ...item,
         serialNo: index + 1,

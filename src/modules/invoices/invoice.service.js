@@ -111,14 +111,17 @@ async function saveInvoiceCustomFields(tx, orgId, invoiceId, customFields) {
             },
         });
 
-        if (!definition) {
-            throw new Error(`Custom field "${field.name}" is not defined in settings.`);
-        }
-
+        // A field with no definition is one invented on this invoice. Only the
+        // name and the value ever reach the document, so there is nothing to
+        // reject - the definition exists to populate the picker, not to gate
+        // what an invoice may say.
         await tx.invoiceCustomFieldValue.create({
             data: {
                 invoiceId: BigInt(invoiceId),
-                customFieldId: definition.id,
+                customFieldId: definition?.id ?? null,
+                // Copied, not looked up later: the definition can be renamed or
+                // deleted, and this invoice keeps the label it was issued with.
+                name: definition?.name ?? field.name,
                 orgId: BigInt(orgId),
                 value: field.value,
             },
@@ -1033,6 +1036,7 @@ async function cloneInvoiceAsDraft(loggedInUser, id, { idempotencyKey }) {
                 data: customFields.map((cf) => ({
                     invoiceId: clone.id,
                     customFieldId: cf.customFieldId,
+                    name: cf.name,
                     orgId,
                     value: cf.value,
                 })),
@@ -1354,8 +1358,11 @@ async function getInvoice(user, id) {
         // a saved field renders unticked, the user ticks it again, and the
         // invoice ends up with the same field twice.
         customFields: (invoice.customFields ?? []).map(cf => ({
-            definitionId: cf.customFieldId.toString(),
-            name: cf.customField.name,
+            // Null once the definition is gone. The dialog falls back to matching
+            // on name, so the field still renders and still ticks its checkbox.
+            definitionId: cf.customFieldId ? cf.customFieldId.toString() : null,
+            // Snapshot first; the relation only covers rows written before it.
+            name: cf.name ?? cf.customField?.name ?? "",
             value: cf.value
         }))
     };

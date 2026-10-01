@@ -275,18 +275,23 @@ model InvoiceBill {
 }
 
 model InvoiceCustomFieldValue {
-  id            BigInt @id @default(autoincrement())
+  id            BigInt  @id @default(autoincrement())
   orgId         BigInt
   invoiceId     BigInt
-  customFieldId BigInt
+  // The definition this came from, while one still exists. Deleting a
+  // definition nulls this rather than cascading the row away.
+  customFieldId BigInt?
+  // The field name as it stood when the invoice was written. Definitions get
+  // renamed and deleted; an issued invoice keeps what it was issued with.
+  name          String?
   value         String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  customField  CustomFieldDefinition @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
-  invoice      InvoiceBill           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  organization Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  customField  CustomFieldDefinition? @relation(fields: [customFieldId], references: [id], onDelete: SetNull)
+  invoice      InvoiceBill            @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  organization Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([invoiceId, customFieldId])
   @@index([invoiceId])

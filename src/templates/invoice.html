@@ -52,6 +52,16 @@
          gap: 40%;
          margin-bottom: 20px;
          }
+         /* Sits on .two-col so the columns are the ones above it, whatever they
+            compute to. */
+         .custom-fields {
+         margin-top: -12px;
+         font-size: 12px;
+         }
+         .custom-field-item {
+         word-break: break-word;
+         page-break-inside: avoid;
+         }
          .box {
          width: 48%;
          }
@@ -193,11 +203,6 @@
                {{#if sacCode}}
                <p>SAC Code: {{sacCode}}</p>
                {{/if}}
-               {{#if customFields}}
-               {{#each customFields}}
-               <p><strong>{{this.customField.name}}:</strong> {{this.value}}</p>
-               {{/each}}
-               {{/if}}
             </div>
             <div class="box">
                <h4>Bill To</h4>
@@ -211,6 +216,21 @@
                <p>{{client.companyType}}</p>
             </div>
          </div>
+         <!-- CUSTOM FIELDS -->
+         {{#if customFields}}
+         <div class="two-col custom-fields">
+            <div class="box">
+               {{#each customFieldsLeft}}
+               <div class="custom-field-item"><strong>{{this.name}}:</strong> {{this.value}}</div>
+               {{/each}}
+            </div>
+            <div class="box">
+               {{#each customFieldsRight}}
+               <div class="custom-field-item"><strong>{{this.name}}:</strong> {{this.value}}</div>
+               {{/each}}
+            </div>
+         </div>
+         {{/if}}
          <!-- ITEMS -->
          <table>
             <thead>
