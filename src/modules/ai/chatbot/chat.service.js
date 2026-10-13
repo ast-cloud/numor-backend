@@ -1,4 +1,7 @@
-const { numorAgent } = require("../chatbot/agent/numor.agent");
+const { numorAgent, checkpointer } = require("../chatbot/agent/numor.agent");
+const { numorGraph, USER_FACING_NODES, graphThreadId } = require("./graph/numor.graph");
+const { textOf } = require("./graph/models");
+const { FLAGS } = require("../../../config/featureFlags");
 const { resolveUserContext } = require("./context/chat.resolveUserContext"); // unified context
 const { buildSystemPrompt } = require("../chatbot/agent/system.prompt");
 const { RemoveMessage, SystemMessage } = require("@langchain/core/messages");
@@ -18,6 +21,42 @@ Tool returns ONLY relevant rows
 const MAX_HISTORY_TURNS = 6;
 const MAX_HISTORY_MESSAGES = MAX_HISTORY_TURNS * 2;
 const HISTORY_SUMMARY_PREFIX = "Summary of previous conversation:";
+
+// FF_CHAT_GRAPH switches every entry point below from the legacy createAgent
+// loop to the StateGraph in ./graph. The two keep separate threads, so
+// flipping the flag starts users on a clean conversation.
+const useGraph = () => FLAGS.FF_CHAT_GRAPH;
+const MAX_GRAPH_MESSAGE_CHARS = 2000;
+
+const threadIdFor = (user) =>
+  useGraph() ? graphThreadId(user.sessionId) : `session-${user.sessionId}`;
+
+function graphInput(message) {
+  return {
+    messages: [
+      { role: "user", content: String(message ?? "").slice(0, MAX_GRAPH_MESSAGE_CHARS) },
+    ],
+  };
+}
+
+function graphConfig(user) {
+  return {
+    configurable: { thread_id: graphThreadId(user.sessionId) },
+    // Read by the nodes as config.context. orgId is what scopes every query.
+    context: {
+      userId: String(user.userId),
+      orgId: String(user.orgId),
+      role: user.role,
+    },
+  };
+}
+
+// One "data:" line per line of text, as the SSE format requires. Writing a
+// chunk that contains a newline as a single data line cuts the frame short
+// and the client loses everything after it.
+function writeSseData(res, text) {
+  res.write(`${text.split("\n").map((line) => `data: ${line}`).join("\n")}\n\n`);
+}
 
 async function ensureConversationWindow(user) {
   const threadId = `session-${user.sessionId}`;
@@ -93,26 +132,35 @@ async function handleChatStream(user, message, res) {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    await ensureConversationWindow(user);
-
+    const graph = useGraph();
     let fullResponse = "";
+    let stream;
 
-    const stream = await numorAgent.stream(
-      {
-        messages: [{ role: "user", content: buildStyledUserMessage(message) }],
-      },
-      {
-        configurable: {
-          thread_id: `session-${user.sessionId}`,
-          context: {
-            userId: user.userId.toString(),
-            role: user.role,
-            orgId: user.orgId,
-          },
+    if (graph) {
+      stream = await numorGraph.stream(graphInput(message), {
+        ...graphConfig(user),
+        streamMode: "messages",
+      });
+    } else {
+      await ensureConversationWindow(user);
+
+      stream = await numorAgent.stream(
+        {
+          messages: [{ role: "user", content: buildStyledUserMessage(message) }],
         },
-        streamMode: "messages", // 🔥 token streaming
-      }
-    );
+        {
+          configurable: {
+            thread_id: `session-${user.sessionId}`,
+            context: {
+              userId: user.userId.toString(),
+              role: user.role,
+              orgId: user.orgId,
+            },
+          },
+          streamMode: "messages", // 🔥 token streaming
+        }
+      );
+    }
 
     for await (const [chunk, metadata] of stream) {
 
@@ -122,11 +170,16 @@ async function handleChatStream(user, message, res) {
       // Ignore tool output
       if (type === "tool") continue;
 
+      // Graph: only the answer and decline nodes speak to the user. The
+      // router's plan and the generated SQL stay internal.
+      if (graph && !USER_FACING_NODES.has(metadata?.langgraph_node)) continue;
+
       // Only stream AI tokens
-      if (type === "ai" && chunk.content) {
-        fullResponse += chunk.content;
-        console.log("STREAMING CHUNK:", chunk.content);
-        res.write(`data: ${chunk.content}\n\n`);
+      const text = type === "ai" ? textOf(chunk.content) : "";
+      if (text) {
+        fullResponse += text;
+        console.log("STREAMING CHUNK:", text);
+        writeSseData(res, text);
       }
     }
 
@@ -168,6 +221,12 @@ async function handleChat(user, message) {
       role: user.role,
       messageLength: message.length,
     });
+
+    if (useGraph()) {
+      const result = await numorGraph.invoke(graphInput(message), graphConfig(user));
+      return textOf(result.messages.at(-1)?.content);
+    }
+
     await ensureConversationWindow(user);
 
     const result = await numorAgent.invoke(
@@ -255,8 +314,8 @@ function ensureMarkdownFormatting(text) {
 }
 
 async function getChatHistory(loggedInUser) {
-  const threadId = `session-${loggedInUser.sessionId}`;
-  const state = await numorAgent.getState({
+  const threadId = threadIdFor(loggedInUser);
+  const state = await (useGraph() ? numorGraph : numorAgent).getState({
     configurable: {
       thread_id: threadId,
     },
@@ -291,6 +350,20 @@ function normalizeMessages(messages) {
 }
 
 async function deleteChatHistory(user) {
+  if (useGraph()) {
+    const threadId = graphThreadId(user.sessionId);
+    const state = await numorGraph.getState({
+      configurable: { thread_id: threadId },
+    });
+    const count = state?.values?.messages?.length ?? 0;
+
+    // Removes every checkpoint for the thread. RemoveMessage would only empty
+    // the latest one and leave the earlier ones, query results included, in
+    // the database.
+    await checkpointer.deleteThread(threadId);
+    return { deleted: count };
+  }
+
   const threadId = `session-${user.sessionId}`;
 
   // 1️⃣ Get current state

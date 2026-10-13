@@ -91,5 +91,6 @@ const numorAgent = createAgent({
 
 module.exports = {
   numorAgent,
+  checkpointer,
   initCheckpointer
 };

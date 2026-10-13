@@ -145,7 +145,11 @@ COMMENT ON TABLE  invoice_bills IS
   'Invoices this organisation has issued to its clients. One row per invoice.';
 
 COMMENT ON COLUMN invoice_bills."baseAmount" IS
-  'Invoice total converted to the organisation base currency. USE THIS for every SUM, AVG or comparison across invoices.';
+  'Invoice total converted to the organisation base currency, which is named in baseCurrency. USE THIS for every SUM, AVG or comparison across invoices, and return baseCurrency with it.';
+COMMENT ON COLUMN invoice_bills."baseCurrency" IS
+  'Currency code of baseAmount, e.g. INR. Return it alongside any baseAmount figure so the amount is never shown without its currency.';
+COMMENT ON COLUMN invoice_bills.currency IS
+  'Currency code the invoice was issued in. Applies to totalAmount, paidAmount, balanceDue, subtotal, discount, taxAmount and shippingCost on the same row.';
 COMMENT ON COLUMN invoice_bills."totalAmount" IS
   'Invoice total in the invoice own currency. NEVER sum this across rows - different rows may be in different currencies.';
 COMMENT ON COLUMN invoice_bills."taxAmount" IS
@@ -195,6 +199,8 @@ COMMENT ON COLUMN expense_bills."ocrConfidence" IS
 
 COMMENT ON TABLE  clients IS
   'Customers this organisation invoices. Join invoice_bills.clientId to clients.id for client names.';
+COMMENT ON COLUMN clients."deletedAt" IS
+  'Soft delete. NULL means the client is active. Add "deletedAt" IS NULL when listing or counting current clients. Keep deleted clients when totalling past invoices.';
 COMMENT ON TABLE  users IS
   'Numor users in this organisation. Only id, name, email and orgId are readable.';
 

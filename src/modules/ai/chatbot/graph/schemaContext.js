@@ -47,8 +47,8 @@ const FOREIGN_KEYS_SQL = `
                           AND tgtatt.attnum = con.confkey[1]
   WHERE con.contype = 'f'
     AND n.nspname = 'public'
-    AND has_table_privilege(src.oid, 'SELECT')
-    AND has_table_privilege(tgt.oid, 'SELECT')
+    AND has_column_privilege(src.oid, srcatt.attnum, 'SELECT')
+    AND has_column_privilege(tgt.oid, tgtatt.attnum, 'SELECT')
   ORDER BY src.relname
 `;
 
@@ -140,18 +140,29 @@ async function getSchemaContext({ refresh = false } = {}) {
   return cached;
 }
 
-/** Table names the chat role can actually read - useful for logging/diagnostics. */
-async function getReadableTables() {
+let cachedTables = null;
+
+/**
+ * Table names the chat role can read at least one column of. This is the
+ * table allowlist the SQL validator checks generated queries against, so it
+ * has to count column-scoped grants (users, organizations) as well as
+ * whole-table ones. Cached for the process lifetime, like the schema context.
+ */
+async function getReadableTables({ refresh = false } = {}) {
+  if (cachedTables && !refresh) return cachedTables;
+
   const { rows } = await getChatPool().query(
     `SELECT DISTINCT c.relname AS name
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = 'public'
         AND c.relkind IN ('r','v','m')
-        AND has_table_privilege(c.oid, 'SELECT')
+        AND has_any_column_privilege(c.oid, 'SELECT')
       ORDER BY 1`
   );
-  return rows.map((r) => r.name);
+
+  cachedTables = rows.map((r) => r.name);
+  return cachedTables;
 }
 
 module.exports = { getSchemaContext, getReadableTables };

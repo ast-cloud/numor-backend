@@ -22,6 +22,7 @@
 const prisma = require("../src/config/database");
 const { runChatQuery, closeChatPool } = require("../src/config/chatDatabase");
 const { getSchemaContext, getReadableTables } = require("../src/modules/ai/chatbot/graph/schemaContext");
+const { validateChatSql } = require("../src/modules/ai/chatbot/graph/sqlValidator");
 const { CHAT_DATABASE_URL, GOOGLE_API_KEY } = require("../src/config/env");
 
 const results = [];
@@ -200,21 +201,69 @@ async function main() {
   console.log("\nSchema context");
   {
     const [context, tables] = await Promise.all([getSchemaContext(), getReadableTables()]);
-    const hasRenamedColumn = context.includes("createdByUserId");
-    const hasNoOldColumn = !context.includes("customerId");
+    const quotesCamelCase = context.includes('"createdById"');
     const hasComments = context.includes("EXCLUDE DRAFT");
+    // users and organizations are granted column by column, so they only show
+    // up if column-scoped grants are counted.
+    const hasColumnScoped = tables.includes("users") && tables.includes("organizations");
 
     record(`readable tables: ${tables.join(", ")}`, tables.length > 0);
+    record("column-scoped tables (users, organizations) are included", hasColumnScoped);
     record(
       `schema context built (~${Math.round(context.length / 4)} tokens)`,
       context.length > 0
     );
-    record("uses createdByUserId, not customerId", hasRenamedColumn && hasNoOldColumn);
+    record("camelCase columns are quoted for the model", quotesCamelCase);
     record("column documentation is present", hasComments,
       hasComments ? undefined : "COMMENT ON statements may not have run");
   }
 
-  // ---- 8. Optional: one real question -> SQL -> answer --------------------
+  // ---- 8. SQL validator ----------------------------------------------------
+  // Row-level security decides which rows a query sees; the validator decides
+  // whether a model-written query may run at all. Every statement below must
+  // be turned away before it reaches the database.
+  console.log("\nSQL validator");
+  {
+    const allowedTables = await getReadableTables();
+    const check = (sql) => validateChatSql(sql, { allowedTables });
+
+    const good = await check(
+      `SELECT c.name AS client, SUM(b."baseAmount") AS total
+         FROM invoice_bills b JOIN clients c ON c.id = b."clientId"
+        WHERE b.status <> 'DRAFT' AND b."issueDate" >= date_trunc('month', now()) - interval '1 month'
+        GROUP BY c.name ORDER BY total DESC LIMIT 5;`
+    );
+    record("accepts an ordinary reporting query", good.ok, good.ok ? undefined : good.reason);
+
+    if (good.ok) {
+      try {
+        await runChatQuery(orgA.orgId, good.sql);
+        record("the accepted query runs as the read-only role", true);
+      } catch (err) {
+        record("the accepted query runs as the read-only role", false, err.message);
+      }
+    }
+
+    const mustReject = [
+      ["a write", "UPDATE invoice_bills SET status = 'PAID'"],
+      ["two statements", "SELECT 1; SELECT 2"],
+      ["SELECT INTO", "SELECT id INTO scratch FROM clients"],
+      ["a data-modifying CTE", "WITH d AS (DELETE FROM clients RETURNING id) SELECT id FROM d"],
+      ["a system catalog", "SELECT rolname FROM pg_roles"],
+      ["a schema-qualified table", "SELECT table_name FROM information_schema.tables"],
+      ["a table outside the grants", "SELECT token FROM user_invitations"],
+      ["a function that is not on the allowlist", "SELECT pg_sleep(5)"],
+      ["a function in FROM", "SELECT * FROM generate_series(1, 10)"],
+      ["a cast to a catalog type", "SELECT 'clients'::regclass"],
+    ];
+
+    for (const [label, sql] of mustReject) {
+      const result = await check(sql);
+      record(`rejects ${label}`, !result.ok, result.ok ? "query was accepted" : undefined);
+    }
+  }
+
+  // ---- 9. Optional: one real question -> SQL -> answer --------------------
   const askIndex = process.argv.indexOf("--ask");
   if (askIndex !== -1 && process.argv[askIndex + 1]) {
     const question = process.argv[askIndex + 1];

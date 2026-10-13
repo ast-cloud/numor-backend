@@ -90,6 +90,17 @@ async function runChatQuery(orgId, sql, opts = {}) {
     const result = await client.query(sql);
     const rows = result.rows ?? [];
 
+    // Tripwire. Row-level security trusts app.current_org_id, and that is
+    // session state the query itself could have altered. The SQL validator is
+    // what stops that; this is a cheap second check behind it, made before
+    // the rows leave this function.
+    const scope = await client.query(
+      "SELECT current_setting('app.current_org_id', true) AS org"
+    );
+    if (scope.rows[0]?.org !== org) {
+      throw new Error("Chat query changed its organisation scope; result discarded");
+    }
+
     return {
       rows: rows.slice(0, maxRows),
       rowCount: rows.length,
