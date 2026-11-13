@@ -305,7 +305,7 @@ model InvoiceBillItem {
   invoiceId   BigInt
   itemName    String
   description String?
-  quantity    Decimal     @default(1) @db.Decimal(10, 2)
+  quantity    Decimal     @default(1) @db.Decimal(17, 4)
   unitPrice   Decimal     @db.Decimal(15, 2)
   taxRate     Decimal     @default(0.00) @db.Decimal(15, 2)
   totalPrice  Decimal     @db.Decimal(10, 2)
@@ -346,7 +346,7 @@ model ExpenseBillItem {
   id         BigInt      @id @default(autoincrement())
   expenseId  BigInt
   itemName   String?
-  quantity   Decimal     @default(1) @db.Decimal(15, 2)
+  quantity   Decimal     @default(1) @db.Decimal(17, 4)
   unitPrice  Decimal     @db.Decimal(15, 2)
   totalPrice Decimal     @db.Decimal(15, 2)
   createdAt  DateTime    @default(now())
