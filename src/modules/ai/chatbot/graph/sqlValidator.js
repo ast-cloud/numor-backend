@@ -12,7 +12,7 @@
 // query must not be able to call anything that changes settings or runs a
 // string as SQL - which is exactly what the function allowlist guarantees.
 
-const { parse } = require("libpg-query");
+const { parse, scan } = require("libpg-query");
 
 const MAX_SQL_LENGTH = 4000;
 const MAX_NODES = 3000;
@@ -157,9 +157,21 @@ function distinctClause(value, ctx) {
   }
 }
 
+// Readable by the chat role, but never to be used in an answer. baseAmount
+// looks like a converted total and is not one: no exchange rate is ever
+// recorded, so it equals totalAmount in the invoice's own currency, labelled
+// INR. Money is totalled per currency instead, never converted. These are
+// also left out of the schema description (schemaContext.js).
+const HIDDEN_COLUMNS = new Set(["baseAmount", "baseCurrency", "exchangeRate"]);
+
 function columnFields(value) {
   for (const field of value) {
     if (!field?.String && !field?.A_Star) reject("unsupported column reference");
+    if (HIDDEN_COLUMNS.has(field?.String?.sval)) {
+      reject(
+        `column "${field.String.sval}" is not available. Amounts are never converted: total them in their own currency and GROUP BY currency`
+      );
+    }
   }
 }
 
@@ -302,6 +314,65 @@ async function parseSingleStatement(sql) {
 }
 
 /**
+ * Puts double quotes around camelCase column names the model left bare.
+ *
+ * Postgres folds an unquoted name to lower case, so `ib.totalAmount` is read
+ * as `ib.totalamount` and fails: the real column is "totalAmount". The model
+ * forgets the quotes often enough, especially after a table alias, and a
+ * retry does not reliably fix it - Postgres reports only the first bad column
+ * per attempt.
+ *
+ * Only unquoted identifiers that match a real column once case is ignored,
+ * and that contain capitals, are rewritten. Such a name can never have
+ * worked unquoted, so this changes nothing that would otherwise run. String
+ * literals, comments and quoted names are separate tokens and are left alone.
+ * The result still goes through validateChatSql like any other query.
+ *
+ * @param {string} sql
+ * @param {Iterable<string>} columnNames real column names, e.g. from getColumnNames()
+ * @returns {Promise<string>}
+ */
+async function quoteCamelCaseColumns(sql, columnNames) {
+  const byLowerCase = new Map();
+  for (const name of columnNames) {
+    const lower = name.toLowerCase();
+    if (name === lower) continue; // works unquoted already
+    // Two columns differing only in case: ambiguous, so leave both alone.
+    byLowerCase.set(lower, byLowerCase.has(lower) ? null : name);
+  }
+  if (typeof sql !== "string" || byLowerCase.size === 0) return sql;
+
+  let tokens;
+  try {
+    ({ tokens } = await scan(sql));
+  } catch {
+    return sql; // unscannable: let the validator report it
+  }
+
+  // Token positions are byte offsets, which differ from string indexes as
+  // soon as the query contains a character such as "₹".
+  const bytes = Buffer.from(sql, "utf8");
+  const pieces = [];
+  let last = 0;
+
+  for (const token of tokens) {
+    if (token.tokenName !== "IDENT") continue;
+    const text = bytes.subarray(token.start, token.end).toString("utf8");
+    if (text.startsWith('"')) continue;
+
+    const real = byLowerCase.get(text.toLowerCase());
+    if (!real) continue;
+
+    pieces.push(bytes.subarray(last, token.start), Buffer.from(`"${real}"`, "utf8"));
+    last = token.end;
+  }
+
+  if (pieces.length === 0) return sql;
+  pieces.push(bytes.subarray(last));
+  return Buffer.concat(pieces).toString("utf8");
+}
+
+/**
  * Validate one model-written query.
  *
  * @param {string} sql
@@ -348,4 +419,10 @@ async function validateChatSql(sql, { allowedTables, maxRows = 50 }) {
   }
 }
 
-module.exports = { validateChatSql, ALLOWED_FUNCTIONS, ALLOWED_CAST_TYPES };
+module.exports = {
+  validateChatSql,
+  quoteCamelCaseColumns,
+  ALLOWED_FUNCTIONS,
+  ALLOWED_CAST_TYPES,
+  HIDDEN_COLUMNS,
+};

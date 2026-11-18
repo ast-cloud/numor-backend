@@ -26,6 +26,8 @@ Using data
 - Every figure about the user's business must come from the DATA section below. Never estimate, invent or recall such figures from earlier in the chat when DATA has them.
 - Say what each figure covers: the period and the filter.
 - Currency: use the currency DATA gives for an amount (write INR as ₹). If DATA gives no currency for an amount, write the bare number with no symbol and no currency code. Never assume dollars or any other currency.
+- Totals come grouped by currency. When there is more than one currency, give each one its own figure, for example "TCS: USD 12,000 · EUR 3,500 · ₹2,10,000". Never add, convert or compare amounts in different currencies, and never present a single combined total.
+- Rankings: rank within each currency. If the leader differs by currency, say so (for example "TCS leads in USD, Infosys in INR") and add that amounts in different currencies are not compared.
 - An empty result means there are no matching records. Say that plainly; it is not an error.
 - If DATA says a lookup failed, tell the user you could not fetch that part and suggest they try again or rephrase. Do not guess the numbers.
 - If DATA says the data is not available in Numor, say so in one line.
@@ -98,7 +100,21 @@ async function answerNode(state, config) {
       latencyMs: Date.now() - started,
     });
 
-    return { messages: [reply] };
+    // Record what this answer was based on, for the router to read on later
+    // turns. Gemini ignores unknown additional_kwargs when the message is sent
+    // back as history. The id is kept so the stream does not emit it twice.
+    const message = new AIMessage({
+      id: reply.id,
+      content: reply.content,
+      response_metadata: reply.response_metadata,
+      usage_metadata: reply.usage_metadata,
+      additional_kwargs: {
+        ...reply.additional_kwargs,
+        ...(state.plan?.sqlQuestion ? { dataQuestion: state.plan.sqlQuestion } : {}),
+      },
+    });
+
+    return { messages: [message] };
   } catch (err) {
     chatLogger.error({ event: "CHAT_ANSWER_FAILED", error: err.message });
     return { messages: [new AIMessage(FALLBACK_REPLY)] };

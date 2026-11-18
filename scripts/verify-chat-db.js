@@ -21,8 +21,15 @@
 
 const prisma = require("../src/config/database");
 const { runChatQuery, closeChatPool } = require("../src/config/chatDatabase");
-const { getSchemaContext, getReadableTables } = require("../src/modules/ai/chatbot/graph/schemaContext");
-const { validateChatSql } = require("../src/modules/ai/chatbot/graph/sqlValidator");
+const {
+  getSchemaContext,
+  getReadableTables,
+  getColumnNames,
+} = require("../src/modules/ai/chatbot/graph/schemaContext");
+const {
+  validateChatSql,
+  quoteCamelCaseColumns,
+} = require("../src/modules/ai/chatbot/graph/sqlValidator");
 const { CHAT_DATABASE_URL, GOOGLE_API_KEY } = require("../src/config/env");
 
 const results = [];
@@ -214,6 +221,10 @@ async function main() {
       context.length > 0
     );
     record("camelCase columns are quoted for the model", quotesCamelCase);
+    record(
+      "unconverted baseAmount / baseCurrency / exchangeRate are not offered to the model",
+      !/"baseAmount"|"baseCurrency"|"exchangeRate"/.test(context)
+    );
     record("column documentation is present", hasComments,
       hasComments ? undefined : "COMMENT ON statements may not have run");
   }
@@ -228,10 +239,10 @@ async function main() {
     const check = (sql) => validateChatSql(sql, { allowedTables });
 
     const good = await check(
-      `SELECT c.name AS client, SUM(b."baseAmount") AS total
+      `SELECT c.name AS client, b.currency, SUM(b."totalAmount") AS total
          FROM invoice_bills b JOIN clients c ON c.id = b."clientId"
         WHERE b.status <> 'DRAFT' AND b."issueDate" >= date_trunc('month', now()) - interval '1 month'
-        GROUP BY c.name ORDER BY total DESC LIMIT 5;`
+        GROUP BY c.name, b.currency ORDER BY b.currency, total DESC LIMIT 5;`
     );
     record("accepts an ordinary reporting query", good.ok, good.ok ? undefined : good.reason);
 
@@ -255,11 +266,40 @@ async function main() {
       ["a function that is not on the allowlist", "SELECT pg_sleep(5)"],
       ["a function in FROM", "SELECT * FROM generate_series(1, 10)"],
       ["a cast to a catalog type", "SELECT 'clients'::regclass"],
+      // Not a real conversion (see HIDDEN_COLUMNS in sqlValidator.js).
+      ["the unconverted baseAmount", 'SELECT SUM("baseAmount") FROM invoice_bills'],
+      ["the baseCurrency label", 'SELECT "baseCurrency" FROM invoice_bills'],
     ];
 
     for (const [label, sql] of mustReject) {
       const result = await check(sql);
       record(`rejects ${label}`, !result.ok, result.ok ? "query was accepted" : undefined);
+    }
+
+    // The model often leaves camelCase columns unquoted after a table alias.
+    // Postgres folds those to lower case and fails; quoteCamelCaseColumns
+    // restores the quotes before validation. This is a query that failed
+    // that way in testing.
+    const unquoted =
+      "SELECT ib.currency, SUM(ib.paidAmount) AS total_paid FROM invoice_bills AS ib " +
+      "WHERE ib.issueDate >= date_trunc('year', now()) AND ib.\"clientName\" ILIKE '%totalAmount%' " +
+      "GROUP BY ib.currency";
+    const requoted = await quoteCamelCaseColumns(unquoted, await getColumnNames());
+    record(
+      "unquoted camelCase columns are re-quoted, quoted names and strings left alone",
+      requoted.includes('SUM(ib."paidAmount")') &&
+        requoted.includes('ib."issueDate"') &&
+        requoted.includes('ib."clientName"') &&
+        requoted.includes("'%totalAmount%'"),
+      requoted
+    );
+    const fixed = await check(requoted);
+    try {
+      if (!fixed.ok) throw new Error(fixed.reason);
+      await runChatQuery(orgA.orgId, fixed.sql);
+      record("the re-quoted query runs as the read-only role", true);
+    } catch (err) {
+      record("the re-quoted query runs as the read-only role", false, err.message);
     }
   }
 

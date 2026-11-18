@@ -145,13 +145,13 @@ COMMENT ON TABLE  invoice_bills IS
   'Invoices this organisation has issued to its clients. One row per invoice.';
 
 COMMENT ON COLUMN invoice_bills."baseAmount" IS
-  'Invoice total converted to the organisation base currency, which is named in baseCurrency. USE THIS for every SUM, AVG or comparison across invoices, and return baseCurrency with it.';
+  'NOT a converted amount: no exchange rate is recorded, so this equals totalAmount in the invoice own currency. Do not use. Hidden from the chatbot (sqlValidator.js).';
 COMMENT ON COLUMN invoice_bills."baseCurrency" IS
-  'Currency code of baseAmount, e.g. INR. Return it alongside any baseAmount figure so the amount is never shown without its currency.';
+  'Label for baseAmount. Unreliable: it says INR even when baseAmount is in another currency. Do not use. Hidden from the chatbot (sqlValidator.js).';
 COMMENT ON COLUMN invoice_bills.currency IS
-  'Currency code the invoice was issued in. Applies to totalAmount, paidAmount, balanceDue, subtotal, discount, taxAmount and shippingCost on the same row.';
+  'Currency code the invoice was issued in. Applies to totalAmount, paidAmount, balanceDue, subtotal, discount, taxAmount and shippingCost on the same row, and to its line items. GROUP BY this in every money total; amounts are never converted.';
 COMMENT ON COLUMN invoice_bills."totalAmount" IS
-  'Invoice total in the invoice own currency. NEVER sum this across rows - different rows may be in different currencies.';
+  'Invoice total in the invoice own currency. Use for revenue / invoiced totals, always grouped by currency.';
 COMMENT ON COLUMN invoice_bills."taxAmount" IS
   'Authoritative tax charged on this invoice. USE THIS for "tax collected". Do NOT recompute tax from invoice_bill_items.taxRate - that ignores invoice-level discount and gives a different, wrong number.';
 COMMENT ON COLUMN invoice_bills."effectiveTax" IS
@@ -161,9 +161,9 @@ COMMENT ON COLUMN invoice_bills."taxSummary" IS
 COMMENT ON COLUMN invoice_bills.status IS
   'Payment state: one of DRAFT, UNPAID, PAID, OVERDUE. EXCLUDE DRAFT from any revenue figure - drafts are not real income. Whether the invoice was delivered is recorded separately by sentAt.';
 COMMENT ON COLUMN invoice_bills."paidAmount" IS
-  'Amount actually received against this invoice, in the invoice own currency.';
+  'Amount actually received against this invoice, in the invoice own currency. Group totals by currency.';
 COMMENT ON COLUMN invoice_bills."balanceDue" IS
-  'Amount still owed on this invoice. Sum for "outstanding" / "unpaid" totals.';
+  'Amount still owed on this invoice, in the invoice own currency. Sum for "outstanding" / "unpaid" totals, grouped by currency.';
 COMMENT ON COLUMN invoice_bills."issueDate" IS
   'Date the invoice was issued. Use this for period filters and monthly grouping unless the user clearly means payment date.';
 COMMENT ON COLUMN invoice_bills."createdById" IS

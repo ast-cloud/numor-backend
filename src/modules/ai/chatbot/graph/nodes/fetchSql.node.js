@@ -12,8 +12,13 @@
 
 const { z } = require("zod");
 const { sqlModel, HIDDEN, withTimeout } = require("../models");
-const { getSchemaContext, getReadableTables } = require("../schemaContext");
-const { validateChatSql, ALLOWED_FUNCTIONS, ALLOWED_CAST_TYPES } = require("../sqlValidator");
+const { getSchemaContext, getReadableTables, getColumnNames } = require("../schemaContext");
+const {
+  validateChatSql,
+  quoteCamelCaseColumns,
+  ALLOWED_FUNCTIONS,
+  ALLOWED_CAST_TYPES,
+} = require("../sqlValidator");
 const { runChatQuery } = require("../../../../../config/chatDatabase");
 const chatLogger = require("../../../../../utils/chat.logger");
 
@@ -61,7 +66,9 @@ Rules
 - Follow the notes after "--" in the schema. They say which column is the right one.
 - Match names loosely: ILIKE '%text%' for clients, merchants and item names.
 - Work out relative dates from now() or CURRENT_DATE, for example date_trunc('month', now()) for the start of this month.
-- Money needs its currency. Whenever a query returns an amount and the table has a currency column for that amount, return it as a column named currency, for example MAX("baseCurrency") AS currency next to SUM("baseAmount"). If amounts in one result could be in different currencies, GROUP BY the currency instead.
+- Never add or convert amounts across currencies. Every invoice amount (totalAmount, paidAmount, balanceDue, taxAmount, subtotal, discount, line totals) is in its invoice's own currency, invoice_bills.currency. Any SUM, AVG, MIN, MAX or ranking of invoice money must GROUP BY invoice_bills.currency and return it as a column named currency, even when the user asks for a single figure. Line items take the currency of their invoice, so join to invoice_bills for it.
+- Rankings across clients or items (top client, best selling item): return each one's total per currency, ordered by currency and then amount. Do not pick a winner across currencies.
+- Expenses have no currency column, so return expense amounts without one.
 - Give every output column a clear snake_case alias.
 - Select only the columns needed. Never SELECT *.
 - Functions you may use: ${[...ALLOWED_FUNCTIONS].join(", ")}. Also COALESCE, NULLIF, GREATEST, LEAST, CASE, EXTRACT. Nothing else.
@@ -97,13 +104,18 @@ function fitToBudget(rows) {
   return kept;
 }
 
-async function runOne(query, orgId, allowedTables) {
+async function runOne(query, orgId, allowedTables, columnNames) {
   const started = Date.now();
-  const base = { purpose: query.purpose, sql: query.sql };
 
-  const checked = await validateChatSql(query.sql, { allowedTables, maxRows: MAX_ROWS });
+  const sql = await quoteCamelCaseColumns(query.sql, columnNames);
+  if (sql !== query.sql) {
+    chatLogger.info({ event: "CHAT_SQL_REQUOTED", before: query.sql, after: sql });
+  }
+  const base = { purpose: query.purpose, sql };
+
+  const checked = await validateChatSql(sql, { allowedTables, maxRows: MAX_ROWS });
   if (!checked.ok) {
-    chatLogger.info({ event: "CHAT_SQL_REJECTED", reason: checked.reason, sql: query.sql });
+    chatLogger.info({ event: "CHAT_SQL_REJECTED", reason: checked.reason, sql });
     return { ...base, ok: false, error: `Rejected: ${checked.reason}` };
   }
 
@@ -115,7 +127,7 @@ async function runOne(query, orgId, allowedTables) {
 
     chatLogger.info({
       event: "CHAT_SQL_EXECUTED",
-      sql: query.sql,
+      sql,
       rowCount: kept.length,
       latencyMs: Date.now() - started,
     });
@@ -127,7 +139,7 @@ async function runOne(query, orgId, allowedTables) {
       truncated: rows.length > MAX_ROWS || kept.length < capped.length,
     };
   } catch (err) {
-    chatLogger.info({ event: "CHAT_SQL_FAILED", error: err.message, sql: query.sql });
+    chatLogger.info({ event: "CHAT_SQL_FAILED", error: err.message, sql });
     return { ...base, ok: false, error: `Database error: ${err.message}` };
   }
 }
@@ -154,9 +166,10 @@ async function fetchSqlNode(state, config) {
     // orgId comes from the signed JWT, never from model output.
     if (!orgId) throw new Error("No organisation on the request");
 
-    const [schema, allowedTables] = await Promise.all([
+    const [schema, allowedTables, columnNames] = await Promise.all([
       getSchemaContext(),
       getReadableTables(),
+      getColumnNames(),
     ]);
 
     const messages = [
@@ -186,7 +199,7 @@ async function fetchSqlNode(state, config) {
       const queries = (plan.queries ?? []).slice(0, MAX_QUERIES);
       if (queries.length === 0) throw new Error("SQL writer returned no queries");
 
-      results = await Promise.all(queries.map((q) => runOne(q, orgId, allowedTables)));
+      results = await Promise.all(queries.map((q) => runOne(q, orgId, allowedTables, columnNames)));
       if (results.every((r) => r.ok)) break;
 
       messages.push(

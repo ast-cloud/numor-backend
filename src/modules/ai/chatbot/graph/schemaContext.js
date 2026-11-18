@@ -11,6 +11,7 @@
 
 const { getChatPool } = require("../../../../config/chatDatabase");
 const chatLogger = require("../../../../utils/chat.logger");
+const { HIDDEN_COLUMNS } = require("./sqlValidator");
 
 const COLUMNS_SQL = `
   SELECT
@@ -87,6 +88,7 @@ function render(columnRows, fkRows) {
     lines.push(`TABLE ${tableName} (`);
 
     for (const col of table.columns) {
+      if (HIDDEN_COLUMNS.has(col.column_name)) continue;
       const parts = [`  ${quoteIfNeeded(col.column_name)} ${col.data_type}`];
       if (!col.nullable) parts.push("NOT NULL");
 
@@ -129,6 +131,7 @@ async function getSchemaContext({ refresh = false } = {}) {
   }
 
   cached = render(columns.rows, foreignKeys.rows);
+  cachedColumnNames = [...new Set(columns.rows.map((r) => r.column_name))];
 
   chatLogger.info({
     event: "CHAT_SCHEMA_CONTEXT_BUILT",
@@ -138,6 +141,18 @@ async function getSchemaContext({ refresh = false } = {}) {
   });
 
   return cached;
+}
+
+let cachedColumnNames = null;
+
+/**
+ * Every column name the chat role can read, for fixing the quoting of
+ * model-written SQL (quoteCamelCaseColumns in sqlValidator.js). Comes from
+ * the same catalog query as the schema description, so it is cached with it.
+ */
+async function getColumnNames({ refresh = false } = {}) {
+  if (!cachedColumnNames || refresh) await getSchemaContext({ refresh: true });
+  return cachedColumnNames;
 }
 
 let cachedTables = null;
@@ -165,4 +180,4 @@ async function getReadableTables({ refresh = false } = {}) {
   return cachedTables;
 }
 
-module.exports = { getSchemaContext, getReadableTables };
+module.exports = { getSchemaContext, getReadableTables, getColumnNames };
