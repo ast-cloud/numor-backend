@@ -20,6 +20,7 @@ const UNITS = {
   EUR: { major: 'Euros', minor: 'Cents' },
   GBP: { major: 'Pounds', minor: 'Pence' },
   AED: { major: 'Dirhams', minor: 'Fils' },
+  SAR: { major: 'Riyals', minor: 'Halalas' },
 };
 
 // Which locale's grouping a currency should use. INR groups as 7,35,000; the
